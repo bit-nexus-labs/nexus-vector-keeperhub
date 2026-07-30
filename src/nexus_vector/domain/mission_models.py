@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -88,14 +89,19 @@ def _require_exact_fields(
         _fail("UNKNOWN_FIELD")
 
 
-def _require_nonempty_string(value: Any, code: str) -> None:
+def _normalize_required_string(value: Any, code: str) -> str:
     if not isinstance(value, str) or not value:
         _fail(code)
+    normalized = unicodedata.normalize("NFC", value)
+    if not normalized:
+        _fail(code)
+    return normalized
 
 
-def _require_address(value: Any, code: str) -> None:
+def _normalize_address(value: Any, code: str) -> str:
     if not isinstance(value, str) or _ADDRESS_PATTERN.fullmatch(value) is None:
         _fail(code)
+    return value.lower()
 
 
 def _require_integer(value: Any, code: str, minimum: int) -> None:
@@ -136,7 +142,14 @@ class AssetSpec:
     decimals: int
 
     def __post_init__(self) -> None:
-        _require_address(self.token_address, "INVALID_TOKEN_ADDRESS")
+        object.__setattr__(
+            self,
+            "token_address",
+            _normalize_address(
+                self.token_address,
+                "INVALID_TOKEN_ADDRESS",
+            ),
+        )
         _require_integer(self.decimals, "INVALID_TOKEN_DECIMALS", 0)
 
 
@@ -149,8 +162,19 @@ class EffectRequest:
     amount_base_units: int
 
     def __post_init__(self) -> None:
-        _require_nonempty_string(self.effect_ref, "INVALID_EFFECT_REF")
-        _require_address(self.recipient, "INVALID_RECIPIENT")
+        object.__setattr__(
+            self,
+            "effect_ref",
+            _normalize_required_string(
+                self.effect_ref,
+                "INVALID_EFFECT_REF",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "recipient",
+            _normalize_address(self.recipient, "INVALID_RECIPIENT"),
+        )
         _require_integer(
             self.amount_base_units,
             "INVALID_AMOUNT_BASE_UNITS",
@@ -179,12 +203,30 @@ class MissionRequest:
             _fail("EMPTY_EFFECTS")
         if any(not isinstance(effect, EffectRequest) for effect in self.effects):
             _fail("INVALID_EFFECT_REQUEST_TYPE")
-        _require_nonempty_string(
-            self.mission_namespace,
-            "INVALID_MISSION_NAMESPACE",
+        object.__setattr__(
+            self,
+            "mission_namespace",
+            _normalize_required_string(
+                self.mission_namespace,
+                "INVALID_MISSION_NAMESPACE",
+            ),
         )
-        _require_nonempty_string(self.mission_ref, "INVALID_MISSION_REF")
-        _require_nonempty_string(self.mission_type, "INVALID_MISSION_TYPE")
+        object.__setattr__(
+            self,
+            "mission_ref",
+            _normalize_required_string(
+                self.mission_ref,
+                "INVALID_MISSION_REF",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "mission_type",
+            _normalize_required_string(
+                self.mission_type,
+                "INVALID_MISSION_TYPE",
+            ),
+        )
         _require_integer(self.chain_id, "INVALID_CHAIN_ID", 1)
         self.build_identity()
 
@@ -281,12 +323,31 @@ class EffectRecord:
     updated_at_utc: datetime
 
     def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "effect_ref",
+            _normalize_required_string(
+                self.effect_ref,
+                "INVALID_EFFECT_REF",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "token_address",
+            _normalize_address(
+                self.token_address,
+                "INVALID_TOKEN_ADDRESS",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "recipient",
+            _normalize_address(self.recipient, "INVALID_RECIPIENT"),
+        )
         if not isinstance(self.state, EffectState):
             _fail("INVALID_EFFECT_STATE")
         _require_integer(self.chain_id, "INVALID_CHAIN_ID", 1)
-        _require_address(self.token_address, "INVALID_TOKEN_ADDRESS")
         _require_integer(self.token_decimals, "INVALID_TOKEN_DECIMALS", 0)
-        _require_address(self.recipient, "INVALID_RECIPIENT")
         _require_integer(
             self.amount_base_units,
             "INVALID_AMOUNT_BASE_UNITS",
@@ -355,6 +416,10 @@ class MissionRecord:
         for effect in self.effects:
             if effect.mission_key != self.mission_key:
                 _fail("EFFECT_MISSION_KEY_MISMATCH")
+            if effect.created_at_utc < self.created_at_utc:
+                _fail("EFFECT_CREATED_BEFORE_MISSION")
+            if effect.updated_at_utc > self.updated_at_utc:
+                _fail("EFFECT_UPDATED_AFTER_MISSION")
             request_effect = expected_requests[effect.effect_ref]
             try:
                 expected_effect_id = derive_effect_id(
@@ -396,10 +461,12 @@ class MissionRecord:
     def effect_id_for(self, effect_ref: str) -> str:
         """Look up an effect ID by business reference, never by position."""
 
-        if not isinstance(effect_ref, str):
-            _fail("UNKNOWN_EFFECT_REF")
+        normalized_effect_ref = _normalize_required_string(
+            effect_ref,
+            "UNKNOWN_EFFECT_REF",
+        )
         try:
-            return self.effect_ids_by_ref[effect_ref]
+            return self.effect_ids_by_ref[normalized_effect_ref]
         except KeyError:
             _fail("UNKNOWN_EFFECT_REF")
 

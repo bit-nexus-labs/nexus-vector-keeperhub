@@ -265,6 +265,217 @@ class PublicContractTests(unittest.TestCase):
                 )
 
 
+class CanonicalizationAndAggregateBoundsTests(unittest.TestCase):
+    def test_nfc_nfd_forms_share_canonical_values_identity_and_lookup(
+        self,
+    ) -> None:
+        nfc = "café"
+        nfd = "cafe\u0301"
+        nfc_mapping = request_mapping()
+        nfd_mapping = request_mapping()
+        for mapping, value in ((nfc_mapping, nfc), (nfd_mapping, nfd)):
+            mapping["mission_namespace"] = f"nexus-vector:{value}"
+            mapping["mission_ref"] = f"PAYOUT-{value}"
+            mapping["mission_type"] = f"TYPE-{value}"
+            mapping["effects"][0]["effect_ref"] = value  # type: ignore[index]
+
+        nfc_request = MissionRequest.from_mapping(nfc_mapping)
+        nfd_request = MissionRequest.from_mapping(nfd_mapping)
+        nfc_record = create_initial_mission_record(nfc_request, CREATED_AT)
+        nfd_record = create_initial_mission_record(nfd_request, CREATED_AT)
+
+        self.assertEqual(nfc_request, nfd_request)
+        self.assertEqual("nexus-vector:café", nfd_request.mission_namespace)
+        self.assertEqual("PAYOUT-café", nfd_request.mission_ref)
+        self.assertEqual("TYPE-café", nfd_request.mission_type)
+        self.assertEqual("café", nfd_request.effects[0].effect_ref)
+        self.assertEqual(nfc_record.mission_key, nfd_record.mission_key)
+        self.assertEqual(
+            nfc_record.content_fingerprint,
+            nfd_record.content_fingerprint,
+        )
+        self.assertEqual(
+            dict(nfc_record.effect_ids_by_ref),
+            dict(nfd_record.effect_ids_by_ref),
+        )
+        self.assertIn("café", nfd_record.effect_ids_by_ref)
+        self.assertNotIn(nfd, nfd_record.effect_ids_by_ref)
+
+    def test_effect_lookup_accepts_nfc_and_nfd_forms(self) -> None:
+        mapping = request_mapping()
+        mapping["effects"][0]["effect_ref"] = "cafe\u0301"  # type: ignore[index]
+        record = create_initial_mission_record(
+            MissionRequest.from_mapping(mapping),
+            CREATED_AT,
+        )
+
+        self.assertEqual(
+            record.effect_id_for("café"),
+            record.effect_id_for("cafe\u0301"),
+        )
+        canonical_effect = next(
+            effect for effect in record.effects
+            if effect.effect_ref == "café"
+        )
+        reconstructed_effect = replace(
+            canonical_effect,
+            effect_ref="cafe\u0301",
+        )
+        reconstructed_effects = tuple(
+            reconstructed_effect
+            if effect.effect_ref == "café"
+            else effect
+            for effect in record.effects
+        )
+        reconstructed = replace(record, effects=reconstructed_effects)
+        self.assertEqual("café", reconstructed_effect.effect_ref)
+        self.assertEqual(
+            record.effect_id_for("café"),
+            reconstructed.effect_id_for("cafe\u0301"),
+        )
+
+    def test_address_case_canonicalization_prevents_false_mismatch(
+        self,
+    ) -> None:
+        mapping = request_mapping()
+        token = "0x00000000000000000000000000000000000000a1"
+        recipient = "0x00000000000000000000000000000000000000b2"
+        upper_token = "0x" + token[2:].upper()
+        upper_recipient = "0x" + recipient[2:].upper()
+        mapping["asset"]["token_address"] = upper_token  # type: ignore[index]
+        mapping["effects"][0]["recipient"] = upper_recipient  # type: ignore[index]
+        request = MissionRequest.from_mapping(mapping)
+        record = create_initial_mission_record(request, CREATED_AT)
+
+        self.assertEqual(token, request.asset.token_address)
+        self.assertEqual(recipient, request.effects[0].recipient)
+        reconstructed_effect = replace(
+            record.effects[0],
+            token_address=upper_token,
+            recipient=upper_recipient,
+        )
+        reconstructed = replace(
+            record,
+            effects=(reconstructed_effect, *record.effects[1:]),
+        )
+        self.assertEqual(token, reconstructed.effects[0].token_address)
+        self.assertEqual(recipient, reconstructed.effects[0].recipient)
+
+    def test_direct_and_mapping_constructors_canonicalize_identically(
+        self,
+    ) -> None:
+        mapping = request_mapping()
+        mapping["mission_namespace"] = "nexus-vector:cafe\u0301"
+        mapping["mission_ref"] = "PAYOUT-cafe\u0301"
+        mapping["mission_type"] = "TYPE-cafe\u0301"
+        mapping["asset"]["token_address"] = (  # type: ignore[index]
+            "0x00000000000000000000000000000000000000A1"
+        )
+        mapping["effects"][0]["effect_ref"] = "cafe\u0301"  # type: ignore[index]
+        mapping["effects"][0]["recipient"] = (  # type: ignore[index]
+            "0x00000000000000000000000000000000000000B2"
+        )
+        mapped = MissionRequest.from_mapping(mapping)
+        asset_mapping = mapping["asset"]
+        effects_mapping = mapping["effects"]
+        direct = MissionRequest(
+            schema_version=mapping["schema_version"],  # type: ignore[arg-type]
+            mission_namespace=mapping["mission_namespace"],  # type: ignore[arg-type]
+            mission_ref=mapping["mission_ref"],  # type: ignore[arg-type]
+            mission_type=mapping["mission_type"],  # type: ignore[arg-type]
+            chain_id=mapping["chain_id"],  # type: ignore[arg-type]
+            asset=AssetSpec(
+                token_address=asset_mapping["token_address"],  # type: ignore[index,arg-type]
+                decimals=asset_mapping["decimals"],  # type: ignore[index,arg-type]
+            ),
+            effects=tuple(
+                EffectRequest(
+                    effect_ref=effect["effect_ref"],
+                    recipient=effect["recipient"],
+                    amount_base_units=effect["amount_base_units"],
+                )
+                for effect in effects_mapping  # type: ignore[union-attr]
+            ),
+        )
+
+        self.assertEqual(mapped, direct)
+        self.assertEqual(mapped.build_identity(), direct.build_identity())
+
+    def test_duplicate_effect_refs_after_nfc_fail_closed(self) -> None:
+        mapping = request_mapping()
+        mapping["effects"][0]["effect_ref"] = "café"  # type: ignore[index]
+        mapping["effects"][1]["effect_ref"] = "cafe\u0301"  # type: ignore[index]
+        assert_model_error(
+            self,
+            "REQUEST_DUPLICATE_EFFECT_REF",
+            lambda: MissionRequest.from_mapping(mapping),
+        )
+
+        request = mission_request()
+        direct_effects = (
+            replace(request.effects[0], effect_ref="café"),
+            replace(request.effects[1], effect_ref="cafe\u0301"),
+            request.effects[2],
+        )
+        assert_model_error(
+            self,
+            "REQUEST_DUPLICATE_EFFECT_REF",
+            lambda: replace(request, effects=direct_effects),
+        )
+
+    def test_effect_created_before_mission_fails_closed(self) -> None:
+        record = mission_record()
+        earlier = CREATED_AT - timedelta(microseconds=1)
+        early_effect = replace(
+            record.effects[0],
+            created_at_utc=earlier,
+        )
+        assert_model_error(
+            self,
+            "EFFECT_CREATED_BEFORE_MISSION",
+            lambda: replace(
+                record,
+                effects=(early_effect, *record.effects[1:]),
+            ),
+        )
+
+    def test_effect_updated_after_mission_fails_closed(self) -> None:
+        record = mission_record()
+        later = CREATED_AT + timedelta(microseconds=1)
+        late_effect = replace(
+            record.effects[0],
+            updated_at_utc=later,
+        )
+        assert_model_error(
+            self,
+            "EFFECT_UPDATED_AFTER_MISSION",
+            lambda: replace(
+                record,
+                effects=(late_effect, *record.effects[1:]),
+            ),
+        )
+
+    def test_effect_timestamp_equality_with_mission_bounds_is_valid(
+        self,
+    ) -> None:
+        record = mission_record()
+        later = CREATED_AT + timedelta(seconds=1)
+        effects = tuple(
+            replace(effect, updated_at_utc=later)
+            for effect in record.effects
+        )
+        expanded = replace(
+            record,
+            effects=effects,
+            updated_at_utc=later,
+        )
+
+        self.assertEqual(CREATED_AT, expanded.effects[0].created_at_utc)
+        self.assertEqual(later, expanded.effects[0].updated_at_utc)
+        self.assertEqual(CREATED_AT, expanded.created_at_utc)
+        self.assertEqual(later, expanded.updated_at_utc)
+
+
 class FailClosedRecordValidationTests(unittest.TestCase):
     def test_forged_mission_key_fails_closed(self) -> None:
         record = mission_record()
