@@ -74,7 +74,6 @@ class MissionControlUITests(unittest.TestCase):
             "DOUBLE SPEND",
             "MISSION ACCOMPLISHED",
             "USDC",
-            "$",
             "100% network chaos",
             "90% connection",
             "Tempo Atomic",
@@ -83,6 +82,12 @@ class MissionControlUITests(unittest.TestCase):
         )
         for phrase in forbidden:
             self.assertNotIn(phrase, combined, phrase)
+
+        # JavaScript template literals legitimately contain `${...}`. Reject
+        # only user-facing currency claims instead of banning the `$` token.
+        self.assertNotIn("$30", combined)
+        self.assertNotIn("$40", combined)
+        self.assertNotRegex(self.index, r"\$\s*\d")
 
     def test_interactions_are_local_text_only_and_accessible(self) -> None:
         self.assertIn('panicButton.addEventListener("click"', self.app)
