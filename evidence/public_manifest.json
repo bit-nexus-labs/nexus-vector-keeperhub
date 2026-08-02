@@ -1,0 +1,107 @@
+{
+  "schema": "nexus-vector.public-evidence.v1",
+  "classification": "SANITIZED_PUBLIC",
+  "generated_at_utc": "2026-08-02T13:30:00Z",
+  "project": {
+    "name": "Nexus Vector — Mission-Safe Agent Payments",
+    "promise": "The agent can retry. The money cannot duplicate.",
+    "repository": "bit-nexus-labs/nexus-vector-keeperhub",
+    "network_policy": "TESTNET_FIRST_MAINNET_BLOCKED"
+  },
+  "claims": [
+    {
+      "claim_id": "durable_mission_admission",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "6ed126dd374417f32124c6b281ec1a19e9915ac9",
+      "evidence": "Mission and canonical effects are persisted before execution eligibility is returned."
+    },
+    {
+      "claim_id": "persist_before_network",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "93ccaf0d695b52ede88c8890358d4d283c4cd1b5",
+      "evidence": "A canonical attempt reaches durable IN_FLIGHT before the execution port is called."
+    },
+    {
+      "claim_id": "concurrency_single_writer",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "73567255fc4a1aae0eb8f6ee98754204458ab3df",
+      "evidence": "Concurrent first dispatch produces one writer and no duplicate port call."
+    },
+    {
+      "claim_id": "restart_reconciliation",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "69bb712bc1da1420d375817d2d1a285da1f665ee",
+      "evidence": "Unknown outcomes are recovered by exact independent observation without blind resend."
+    },
+    {
+      "claim_id": "deterministic_partial_continuation",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "f8714111344cbee3054158ef21ca27406b386722",
+      "evidence": "The 10 + 10 + 10 case partitions exactly into skip 10, execute 10 and reconcile 10."
+    },
+    {
+      "claim_id": "execution_doctor",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "c5c01f3573180f79607ec126d0b3fc16e46662cc",
+      "evidence": "A deterministic read-only Doctor returns one safe next action from local and sanitized observations."
+    },
+    {
+      "claim_id": "static_replay_ui",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "d10eb0e3b9fb6decb1ea2072e34b577dd52691b4",
+      "evidence": "Dependency-free Simple, Technical and Evidence views render curated replay data only."
+    },
+    {
+      "claim_id": "keeperhub_testnet_transaction",
+      "status": "PENDING_RUNTIME",
+      "merge_commit": null,
+      "evidence": "No real KeeperHub testnet transaction is claimed by this manifest."
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "frontend/index.html",
+      "sha256": "02b3bb28efe5fa7ab3d6ffa7c2a84abfe44975649f32e0e74f5c7ed47d6da826",
+      "classification": "PUBLIC_STATIC_UI",
+      "is_transaction_evidence": false
+    },
+    {
+      "path": "frontend/styles.css",
+      "sha256": "1dce9556077cad892da38e516d577bf848c67374df89f1091a63a68c3452a275",
+      "classification": "PUBLIC_STATIC_UI",
+      "is_transaction_evidence": false
+    },
+    {
+      "path": "frontend/app.js",
+      "sha256": "7d75ce0d565512f954e8517bcf853b62ef8ce49e79345891fa42cdd97dc57857",
+      "classification": "PUBLIC_STATIC_UI",
+      "is_transaction_evidence": false
+    },
+    {
+      "path": "frontend/replay/mission-safe-30.js",
+      "sha256": "f33f99394506c763be52be7a0cb3441e42b2be846cb7c6fd9c5a06ee7cd6d654",
+      "classification": "CURATED_REPLAY",
+      "is_transaction_evidence": false
+    }
+  ],
+  "runtime_evidence": {
+    "keeperhub_request_id": null,
+    "transaction_hash": null,
+    "explorer_url": null,
+    "status": "NOT_YET_COLLECTED"
+  },
+  "redaction": {
+    "credentials_present": false,
+    "wallet_private_material_present": false,
+    "raw_provider_payload_present": false,
+    "real_recipient_data_present": false,
+    "unredacted_provider_ids_present": false
+  },
+  "external_actions_represented": {
+    "provider_calls": 0,
+    "wallet_operations": 0,
+    "signed_transactions": 0,
+    "broadcast_transactions": 0,
+    "funds_moved": 0
+  }
+}
