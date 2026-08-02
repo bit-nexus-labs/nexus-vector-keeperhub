@@ -24,6 +24,7 @@
   const panicButton = byId("panic-retry");
   const safeButton = byId("safe-recovery");
   const blackBoxButton = byId("open-black-box");
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let currentStepIndex = manifest.steps.length - 1;
 
   function setActiveView(viewName) {
@@ -226,7 +227,10 @@
     setDecision("safe");
     setActiveView("simple");
     renderStep(2);
-    byId("replay-heading").scrollIntoView({ behavior: "smooth", block: "center" });
+    byId("replay-heading").scrollIntoView({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      block: "center"
+    });
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "ArrowLeft") renderStep(currentStepIndex - 1);
