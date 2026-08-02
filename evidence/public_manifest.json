@@ -1,7 +1,7 @@
 {
   "schema": "nexus-vector.public-evidence.v1",
   "classification": "SANITIZED_PUBLIC",
-  "generated_at_utc": "2026-08-02T13:30:00Z",
+  "generated_at_utc": "2026-08-02T18:30:00Z",
   "project": {
     "name": "Nexus Vector — Mission-Safe Agent Payments",
     "promise": "The agent can retry. The money cannot duplicate.",
@@ -50,6 +50,36 @@
       "status": "OFFLINE_VERIFIED",
       "merge_commit": "d10eb0e3b9fb6decb1ea2072e34b577dd52691b4",
       "evidence": "Dependency-free Simple, Technical and Evidence views render curated replay data only."
+    },
+    {
+      "claim_id": "keeperhub_contract_review",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "cbc3b1471e68f7295991ea579a0d76d989083b4f",
+      "evidence": "Official wallet, chain, simulation, transfer, idempotency and status contracts are pinned with fail-closed tests."
+    },
+    {
+      "claim_id": "durable_provider_reference",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "d1065510260e77b71ba47cef795e2b2cd195698b",
+      "evidence": "The provider execution reference is stored durably before provider acknowledgement and survives restart."
+    },
+    {
+      "claim_id": "keeperhub_direct_execution_adapter",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "dbb8297b2872ee75cbcdc95f3550cf76077c236b",
+      "evidence": "A testnet-only simulation-first mapper enforces fingerprint and request-body parity without direct network capability."
+    },
+    {
+      "claim_id": "keeperhub_status_observer",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "999cf9d07edde251a93f521bdc76323b709c75c6",
+      "evidence": "Provider status is read-only, identity-bound, poll-hint aware, and kept separate from independent chain verification."
+    },
+    {
+      "claim_id": "bounded_keeperhub_https_transport",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "3e7e355c356197298217fad01fb969619e6cd093",
+      "evidence": "The official API host is pinned with no redirects or retries, bounded JSON responses, explicit credential injection, and wallet/chain parsers."
     },
     {
       "claim_id": "keeperhub_testnet_transaction",
