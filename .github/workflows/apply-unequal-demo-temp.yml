@@ -1,0 +1,80 @@
+name: Temporary apply unequal Mission Control demo
+
+on:
+  push:
+    branches:
+      - feature/mission-control-unequal-amounts-v2
+    paths:
+      - "tools/apply_unequal_demo_temp.py"
+      - ".github/workflows/apply-unequal-demo-temp.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-unequal-demo-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Carry reviewed UI and apply deterministic scenario patch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: feature/mission-control-unequal-amounts-v2
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Fetch reviewed Mission Control branch
+        run: git fetch --no-tags --depth=1 origin feature/mission-control-wow-ui
+
+      - name: Copy only reviewed UI surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            frontend/index.html \
+            frontend/app.js \
+            frontend/styles.css \
+            docs/MISSION_CONTROL_UI_REVIEW.md \
+            tests/test_mission_control_ui.py \
+            evidence/public_manifest.json
+          do
+            mkdir -p "$(dirname "$path")"
+            git show FETCH_HEAD:"$path" > "$path"
+          done
+
+      - name: Apply unequal 12 plus 7 plus 11 scenario
+        run: python tools/apply_unequal_demo_temp.py
+
+      - name: Verify before commit
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m compileall -q src tests tools
+          python tools/verify_repository_hygiene.py
+          python tools/verify_public_evidence.py
+          python -m unittest discover -s tests -p "test_*.py" -q
+          git diff --check
+
+      - name: Remove temporary automation surfaces
+        shell: bash
+        run: |
+          rm -f tools/apply_unequal_demo_temp.py
+          rm -f .github/workflows/apply-unequal-demo-temp.yml
+          rm -f .github/workflows/repo-snapshot-qa.yml
+
+      - name: Commit exact reviewed result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Nexus Vector Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Refresh Mission Control with unequal payment effects"
+          git push origin HEAD:feature/mission-control-unequal-amounts-v2
