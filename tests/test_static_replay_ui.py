@@ -73,12 +73,17 @@ class StaticReplayUITests(unittest.TestCase):
         self.assertIn("replaceChildren", self.app)
         self.assertNotIn("innerHTML", self.app)
 
-    def test_replay_has_exact_10_10_10_partition(self) -> None:
+    def test_replay_has_exact_12_7_11_partition(self) -> None:
         effect_refs = re.findall(r'effectRef: "(anna|mark|leo)"', self.replay)
         self.assertEqual(effect_refs[:3], ["anna", "mark", "leo"])
         self.assertEqual(len(set(effect_refs[:3])), 3)
         self.assertIn("totalAmountBaseUnits: 30", self.replay)
-        self.assertIn("skipped: 10, executable: 10, unresolved: 10", self.replay)
+        self.assertEqual(
+            re.findall(r"amountBaseUnits: (\d+)", self.replay)[:3],
+            ["12", "7", "11"],
+        )
+        self.assertIn("skipped: 12, executable: 7, unresolved: 11", self.replay)
+        self.assertIn("skipped: 0, executable: 18, unresolved: 12", self.replay)
         self.assertIn('continuation: "SKIP_VERIFIED"', self.replay)
         self.assertIn('continuation: "EXECUTE_MISSING"', self.replay)
         self.assertIn('continuation: "RECONCILE_REQUIRED"', self.replay)

@@ -1,66 +1,66 @@
-# Demo Video Script — Mission-Safe Agent Payments
+# Demo Video Script — Mission Control Recovery
 
-Target length: **90–120 seconds**. Record the static replay UI from `frontend/index.html`. Every frame that uses curated data must keep `REPLAY · SANITIZED` and `NO LIVE TRANSACTION` visible or verbally disclosed.
+Target length: **100–115 seconds**. Record the static replay UI from `frontend/index.html` at 1080p landscape. Every curated frame must keep `REPLAY · SANITIZED` and `NO LIVE TRANSACTION` visible or verbally disclosed.
 
-## 0:00–0:10 — Hook
+## 0:00–0:09 — Hook
 
-**Screen:** Hero and safety badge.
-
-**Voiceover:**
-
-> An agent can retry after a timeout or restart. Money cannot. Nexus Vector gives every business Mission and payment effect durable identity, so uncertainty never becomes a duplicate payment.
-
-## 0:10–0:25 — The Mission
-
-**Screen:** Simple view, step 1.
+**Screen:** Mission Control hero and incident telemetry.
 
 **Voiceover:**
 
-> This curated Mission contains three ten-unit effects: Anna, Mark, and Leo. The Mission and all three effects are persisted before any execution is eligible.
+> An autonomous agent can retry after a timeout. Money cannot. Nexus Vector gives every business Mission and economic effect durable identity, so uncertainty never becomes permission to pay twice.
 
-## 0:25–0:42 — The dangerous failure
+## 0:09–0:24 — The Judge's Dilemma
 
-**Screen:** Advance to `Attempt persisted first`, then `Response lost`.
-
-**Voiceover:**
-
-> Before the external port is called, Nexus Vector persists one canonical attempt. Then the response is lost. A conventional agent may retry. Nexus Vector records execution unknown and blocks a blind resend.
-
-## 0:42–0:58 — Restart and independent verification
-
-**Screen:** Advance to `Restart + independent verification`.
+**Screen:** The two decision cards. Keep both choices visible.
 
 **Voiceover:**
 
-> After restart, Nexus Vector reconciles from independent evidence. Anna is confirmed and becomes permanently skipped. The system does not trust provider acceptance alone as proof of payment.
+> The response vanished after Anna's twelve-unit effect may already have executed. A normal agent may assume failure and send again. The judge now chooses: panic retry, or safe recovery.
 
-## 0:58–1:15 — Safe continuation
+## 0:24–0:35 — Counterfactual danger
 
-**Screen:** Final replay step and effect cards.
-
-**Voiceover:**
-
-> The result is deterministic: Anna—skip ten. Mark—missing ten, eligible only after policy gates. Leo—unknown ten, reconcile first. Every unit is classified once: ten plus ten plus ten equals the immutable Mission total of thirty.
-
-## 1:15–1:35 — Technical proof
-
-**Screen:** Technical view.
+**Screen:** Select `Panic retry`; show the highlighted ALPHA timeline and `42 / 30 projected`.
 
 **Voiceover:**
 
-> Under the interface are separate Mission, effect, and execution-attempt state machines; SQLite durability; revision-CAS concurrency; restart recovery; and a Doctor that returns one conservative next action.
+> Panic retry is a counterfactual only. Repeating Anna's twelve-unit effect would raise projected exposure from thirty to forty-two. Nexus Vector never executes this branch.
 
-## 1:35–1:50 — Evidence boundary
+## 0:35–0:51 — Safe recovery and Black Box
 
-**Screen:** Evidence view.
+**Screen:** Select `Safe recovery`, then `Open black box & reconcile`.
 
 **Voiceover:**
 
-> The public evidence bundle hashes this replay and separates offline-verified claims from pending runtime evidence. This recording uses sanitized replay data and does not claim a live transaction.
+> Safe recovery opens the durable black box: the Mission, canonical attempt, and provider reference survive restart. An unknown outcome stays unknown, and blind resend remains denied.
 
-## 1:50–2:00 — Close
+## 0:51–1:10 — Unequal effects, exact partition
 
-**Screen:** Return to hero.
+**Screen:** Use `Drop response`, `Process restart`, and `Safe continuation`; finish on the three effect cards.
+
+**Voiceover:**
+
+> Independent evidence verifies Anna, so twelve units are skipped forever. Mark's seven units are still missing and only eligible after policy gates. Leo's eleven units remain unresolved and must be reconciled. Twelve plus seven plus eleven equals the immutable Mission total of thirty—classified exactly once.
+
+## 1:10–1:28 — Zero-Trust Treasury Gate
+
+**Screen:** Open `Treasury gate`; show identity, budget, durable attempt, evidence policy, and continuation checks.
+
+**Voiceover:**
+
+> The treasury gate validates identity, immutable budget, durable attempt state, evidence policy, and continuation authority. Its decision is deterministic: one skip, one execute candidate, one reconcile. Classification is not a live payment authorization.
+
+## 1:28–1:42 — Evidence boundary
+
+**Screen:** Open `Evidence`; pause on the manifest hash and sanitized records.
+
+**Voiceover:**
+
+> The public evidence bundle hashes the exact replay bytes and separates offline-verified guarantees from pending runtime evidence. This recording is REPLAY · SANITIZED and does not claim a live transaction.
+
+## 1:42–1:52 — Close
+
+**Screen:** Return to the hero and tagline.
 
 **Voiceover:**
 
@@ -71,5 +71,6 @@ Target length: **90–120 seconds**. Record the static replay UI from `frontend/
 - no browser bookmarks, account avatar, API key, wallet extension, local private path, notifications, chat IDs, balances, raw provider IDs, or real recipients;
 - use 1080p landscape for the primary export;
 - export a second backup copy before upload;
-- verify audio, text readability, tab transitions, and the safety disclosure;
-- after a real testnet run, add only a separately reviewed final evidence segment; do not retrofit a replay frame as live proof.
+- verify audio, text readability, decision transitions, tabs, and the replay disclosure;
+- do not show the counterfactual branch as an observed event;
+- after a real testnet run, add only a separately reviewed evidence segment; never retrofit a replay frame as live proof.

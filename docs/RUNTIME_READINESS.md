@@ -1,7 +1,7 @@
 # Runtime Readiness
 
-**Reviewed:** 2026-08-02  
-**Product main at review start:** `3e7e355c356197298217fad01fb969619e6cd093`  
+**Reviewed:** 2026-08-02
+**Product main at review start:** `795d86f93b110b3d0ff5b6df91bdc9fc39d06d23`
 **Policy:** TESTNET FIRST / MAINNET BLOCKED / NO BLIND RETRY
 
 This file distinguishes implemented code from runtime evidence. `OFFLINE VERIFIED` does not mean that a transaction occurred.
@@ -16,10 +16,11 @@ This file distinguishes implemented code from runtime evidence. `OFFLINE VERIFIE
 | One canonical attempt per effect | DONE | identity and conflict tests |
 | `IN_FLIGHT` before provider call | DONE | dispatch and concurrency tests |
 | Lost-response/restart reconciliation | DONE | real SQLite cross-store tests |
-| Duplicate suppression and 10+10+10 continuation | DONE | deterministic planner tests |
+| Duplicate suppression and 12+7+11 continuation | DONE | unequal-amount deterministic planner tests |
 | Execution Doctor | DONE | read-only policy/CLI tests |
 | KeeperHub official schema contract | OFFLINE VERIFIED | documented official endpoints and testnet constants |
 | Durable KeeperHub `executionId` | OFFLINE VERIFIED | append-only provider-reference journal and crash tests |
+| Provider-reference preflight hardening | OFFLINE VERIFIED | schema validation and existing-reference guard before provider call |
 | Direct Execution transfer mapper | OFFLINE VERIFIED | testnet-only intent, fingerprint, simulation/body parity, one idempotency key |
 | KeeperHub status observer | OFFLINE VERIFIED | poll-hint and transaction-reference tests |
 | Bounded HTTPS transport | OFFLINE VERIFIED | pinned host, no redirect/retry, bounded JSON, injected credentials |

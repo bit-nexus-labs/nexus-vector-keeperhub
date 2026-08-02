@@ -65,10 +65,10 @@ def observation(item, provider, chain, confirmations=0):
 
 
 class ExecutionDoctorTests(unittest.TestCase):
-    def test_10_10_10_prioritizes_reconciliation(self):
-        anna = decision("anna", "2", 10, ContinuationAction.SKIP_VERIFIED)
-        mark = decision("mark", "3", 10, ContinuationAction.EXECUTE_MISSING)
-        leo = decision("leo", "4", 10, ContinuationAction.RECONCILE_REQUIRED)
+    def test_12_7_11_prioritizes_reconciliation(self):
+        anna = decision("anna", "2", 12, ContinuationAction.SKIP_VERIFIED)
+        mark = decision("mark", "3", 7, ContinuationAction.EXECUTE_MISSING)
+        leo = decision("leo", "4", 11, ContinuationAction.RECONCILE_REQUIRED)
         report = ExecutionDoctor().diagnose(
             plan(anna, leo, mark),
             {

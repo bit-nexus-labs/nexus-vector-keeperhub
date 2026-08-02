@@ -38,7 +38,7 @@ RECIPIENTS = {
 
 
 class SQLiteContinuationPlannerTests(unittest.TestCase):
-    def test_real_10_10_10_state_partitions_exactly_once(self) -> None:
+    def test_real_12_7_11_state_partitions_exactly_once(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             mission_store = SQLiteMissionStore(root / "missions.sqlite3")
@@ -51,7 +51,7 @@ class SQLiteContinuationPlannerTests(unittest.TestCase):
             request = MissionRequest(
                 schema_version=SCHEMA_VERSION,
                 mission_namespace="keeperhub-hackathon",
-                mission_ref="continuation-10-10-10",
+                mission_ref="continuation-12-7-11",
                 mission_type="MULTI_RECIPIENT_PAYMENT",
                 chain_id=84532,
                 asset=AssetSpec(token_address=TOKEN, decimals=6),
@@ -59,7 +59,7 @@ class SQLiteContinuationPlannerTests(unittest.TestCase):
                     EffectRequest(
                         effect_ref=effect_ref,
                         recipient=RECIPIENTS[effect_ref],
-                        amount_base_units=10,
+                        amount_base_units={"anna": 12, "mark": 7, "leo": 11}[effect_ref],
                     )
                     for effect_ref in ("anna", "mark", "leo")
                 ),
@@ -147,9 +147,9 @@ class SQLiteContinuationPlannerTests(unittest.TestCase):
                 },
             )
             self.assertEqual(continuation.total_amount_base_units, 30)
-            self.assertEqual(continuation.skipped_amount_base_units, 10)
-            self.assertEqual(continuation.executable_amount_base_units, 10)
-            self.assertEqual(continuation.unresolved_amount_base_units, 10)
+            self.assertEqual(continuation.skipped_amount_base_units, 12)
+            self.assertEqual(continuation.executable_amount_base_units, 7)
+            self.assertEqual(continuation.unresolved_amount_base_units, 11)
             self.assertEqual(
                 continuation.manual_review_amount_base_units,
                 0,
