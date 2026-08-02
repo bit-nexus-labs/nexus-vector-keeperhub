@@ -64,7 +64,7 @@ class RepositoryHygieneTests(unittest.TestCase):
 
     def test_high_confidence_secret_shapes_fail_without_echo(self) -> None:
         cases = {
-            "private.pem.txt": b"-----BEGIN PRIVATE KEY-----\nredacted\n",
+            "private.pem.txt": b"-----BEGIN " + b"PRIVATE KEY-----\nredacted\n",
             "github.txt": b"ghp_" + b"A" * 36,
             "keeperhub.txt": b"kh_" + b"B" * 28,
             "openai.txt": b"sk-" + b"C" * 28,
