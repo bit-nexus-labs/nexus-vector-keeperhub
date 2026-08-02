@@ -13,6 +13,9 @@ from typing import Any, TypeVar
 from nexus_vector.domain.provider_execution_references import (
     ProviderExecutionReference,
     ProviderExecutionReferenceError,
+    normalize_provider_namespace,
+    normalize_provider_reference,
+    validate_attempt_id,
 )
 
 _SCHEMA_VERSION = 1
@@ -49,6 +52,13 @@ class SQLiteProviderExecutionReferenceStoreError(RuntimeError):
 
 def _fail(code: str) -> None:
     raise SQLiteProviderExecutionReferenceStoreError(code)
+
+
+def _translate_validation(operation: Callable[[], _T]) -> _T:
+    try:
+        return operation()
+    except ProviderExecutionReferenceError as error:
+        _fail(error.code)
 
 
 def _serialize_timestamp(value: datetime) -> str:
@@ -270,25 +280,30 @@ class SQLiteProviderExecutionReferenceStore:
         return self._write(operation)
 
     def get(self, attempt_id: str) -> ProviderExecutionReference | None:
-        if not isinstance(attempt_id, str):
-            _fail("INVALID_ATTEMPT_ID")
-        return self._read(lambda connection: self._load(connection, attempt_id))
+        canonical_attempt_id = _translate_validation(
+            lambda: validate_attempt_id(attempt_id)
+        )
+        return self._read(
+            lambda connection: self._load(connection, canonical_attempt_id)
+        )
 
     def get_by_provider_reference(
         self,
         provider_namespace: str,
         provider_reference: str,
     ) -> ProviderExecutionReference | None:
-        if not isinstance(provider_namespace, str) or not provider_namespace:
-            _fail("INVALID_PROVIDER_NAMESPACE")
-        if not isinstance(provider_reference, str) or not provider_reference:
-            _fail("INVALID_PROVIDER_REFERENCE")
+        canonical_namespace = _translate_validation(
+            lambda: normalize_provider_namespace(provider_namespace)
+        )
+        canonical_reference = _translate_validation(
+            lambda: normalize_provider_reference(provider_reference)
+        )
 
         def operation(connection: sqlite3.Connection) -> ProviderExecutionReference | None:
             row = connection.execute(
                 "SELECT attempt_id FROM provider_execution_references "
                 "WHERE provider_namespace = ? AND provider_reference = ?",
-                (provider_namespace, provider_reference),
+                (canonical_namespace, canonical_reference),
             ).fetchone()
             return None if row is None else self._load(connection, str(row[0]))
 
