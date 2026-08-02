@@ -126,10 +126,10 @@ def simulation_ok():
     )
 
 
-def broadcast_ok():
+def broadcast_ok(status="completed"):
     return KeeperHubTransportResponse(
         202,
-        {"executionId": EXECUTION_ID, "status": "pending"},
+        {"executionId": EXECUTION_ID, "status": status},
     )
 
 
@@ -192,6 +192,17 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
         self.assertIs(simulation_body.pop("simulate"), True)
         self.assertEqual(simulation_body, broadcast_body)
 
+    def test_all_official_execution_statuses_preserve_reference(self) -> None:
+        for status in ("pending", "running", "completed", "failed"):
+            with self.subTest(status=status):
+                transport = ScriptedTransport([simulation_ok(), broadcast_ok(status)])
+                result = KeeperHubDirectExecutionPort(
+                    transport,
+                    make_intent(),
+                ).execute(make_in_flight_attempt())
+                self.assertEqual(result.outcome, ExecutionPortOutcome.ACCEPTED)
+                self.assertEqual(result.provider_reference, EXECUTION_ID)
+
     def test_changed_economic_intent_is_blocked_before_transport(self) -> None:
         original = make_intent()
         changed = make_intent(amount_base_units=11)
@@ -210,8 +221,8 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
                 {"success": False, "status": "simulated", "wouldRevert": False},
             ),
             KeeperHubTransportResponse(
-                200,
-                {"success": True, "status": "simulated", "wouldRevert": True},
+                400,
+                {"success": False, "status": "simulated", "wouldRevert": True},
             ),
             KeeperHubTransportResponse(422, {"error": "wallet_not_configured"}),
         ):
@@ -226,7 +237,13 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
         ambiguous_scripts = (
             [KeeperHubTransportResponse(429, {"error": "rate_limited"})],
             [simulation_ok(), KeeperHubTransportResponse(409, {"error": "in_progress"})],
-            [simulation_ok(), KeeperHubTransportResponse(202, {"status": "pending"})],
+            [simulation_ok(), KeeperHubTransportResponse(202, {"status": "completed"})],
+            [
+                KeeperHubTransportResponse(
+                    400,
+                    {"success": False, "status": "invalid", "wouldRevert": True},
+                )
+            ],
         )
         for script in ambiguous_scripts:
             with self.subTest(script=script):
@@ -296,7 +313,7 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
                 simulation_ok(),
                 KeeperHubTransportResponse(
                     202,
-                    {"executionId": " bad-id ", "status": "pending"},
+                    {"executionId": " bad-id ", "status": "completed"},
                 ),
             ]
         )
