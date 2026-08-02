@@ -1,27 +1,33 @@
 # Architecture
 
-Nexus Vector separates durable business intent, external execution, and independent verification. KeeperHub is an execution provider boundary; it is not the authority for Mission identity, retry permission, or proof that the intended recipient was paid.
+Nexus Vector separates durable business intent, provider execution, provider observation, and independent chain verification. KeeperHub is an execution boundary; it is not the authority for Mission identity, retry permission, or proof that the intended recipient was paid.
 
 ## Layers
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ Presentation                                                │
-│ Static replay UI · strict JSON CLI · sanitized evidence     │
-├─────────────────────────────────────────────────────────────┤
-│ Application                                                 │
-│ Admission · Dispatch · Reconciliation · Continuation · Doctor│
-├─────────────────────────────────────────────────────────────┤
-│ Domain                                                      │
-│ Mission identity · effects · attempts · transition rules    │
-├─────────────────────────────────────────────────────────────┤
-│ Persistence                                                 │
-│ SQLite Mission store · SQLite execution-attempt journal     │
-├─────────────────────────────────────────────────────────────┤
-│ External ports — not implemented in this repository         │
-│ KeeperHub execution adapter · read-only chain verifier      │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Presentation                                                     │
+│ Static replay UI · strict JSON CLI · sanitized evidence          │
+├──────────────────────────────────────────────────────────────────┤
+│ Application                                                      │
+│ Admission · Dispatch · Reconciliation · Continuation · Doctor    │
+├──────────────────────────────────────────────────────────────────┤
+│ Provider integration                                             │
+│ KeeperHub intent · simulation/broadcast mapper · status observer │
+│ Bounded HTTPS transport · wallet/chains readiness parsers        │
+├──────────────────────────────────────────────────────────────────┤
+│ Domain                                                           │
+│ Mission identity · effects · attempts · provider references      │
+├──────────────────────────────────────────────────────────────────┤
+│ Persistence                                                      │
+│ Mission store · attempt journal · provider-reference journal     │
+├──────────────────────────────────────────────────────────────────┤
+│ Independent evidence                                             │
+│ Exact chain/token/sender/recipient/base-unit observation port    │
+└──────────────────────────────────────────────────────────────────┘
 ```
+
+The HTTPS transport is implemented but not invoked by repository tests or documentation builds. Credentials are injected explicitly at runtime; the code does not read environment variables, `.env`, keyrings, browser sessions, or local credential managers.
 
 ## Mission authority
 
@@ -33,13 +39,13 @@ Changed content under the same Mission identity is a conflict, not an update. Id
 
 ### Mission store
 
-The Mission and all canonical effects are created atomically in SQLite before admission returns. Admission advances only through revision-CAS transitions:
+The Mission and all canonical effects are created atomically in SQLite before admission returns:
 
 ```text
 RECEIVED → VALIDATED → PERSISTED
 ```
 
-A restart can resume from `RECEIVED` or `VALIDATED`. A persisted or later Mission never regresses.
+Restart resumes from `RECEIVED` or `VALIDATED`. A persisted or later Mission never regresses.
 
 ### Execution-attempt journal
 
@@ -49,11 +55,77 @@ Each `effect_id` has one canonical attempt identity. Dispatch persists:
 PREPARED → IN_FLIGHT
 ```
 
-before invoking the provider-neutral execution port. A second dispatcher cannot obtain another writer claim. The claim does not expire automatically; a stuck or unknown attempt goes to reconciliation instead of timeout-based resend.
+before invoking any execution port. A second dispatcher cannot obtain another writer claim. The claim does not expire automatically; a stuck or unknown attempt goes to reconciliation instead of timeout-based resend.
 
-Mission and attempt stores are deliberately separate in the hackathon MVP. That reduces migration risk to the stable Mission store. Cross-store recovery is therefore explicit rather than pretending to provide one distributed transaction.
+### Provider-reference journal
 
-## Crash ordering
+KeeperHub returns an `executionId` after accepting a Direct Execution request. Nexus Vector stores it in a separate immutable SQLite journal keyed by canonical `attempt_id`.
+
+```text
+IN_FLIGHT
+  → provider call
+  → durable provider reference
+  → PROVIDER_ACKNOWLEDGED
+```
+
+A crash after the provider reference is written but before ACK leaves a safe recovery state: the attempt is still a recovery candidate and the exact provider execution can be queried without issuing another transfer.
+
+The sidecar journal avoids a deadline-sensitive migration of the proven attempt schema. The tradeoff is an additional SQLite file; consolidation is a post-hackathon option, not a prerequisite for safety.
+
+## KeeperHub Direct Execution path
+
+### Immutable intent and fingerprint
+
+The provider adapter does not reconstruct economic fields from prose. It receives an immutable transfer intent containing:
+
+- chain ID;
+- token contract and decimals;
+- recipient;
+- integer base-unit amount;
+- optional canonical gas multiplier.
+
+Before simulation it recomputes the durable request fingerprint from that intent and the canonical request key. Any changed chain, token, recipient, amount, decimals, or gas policy is blocked before the transport is called.
+
+### Simulation and broadcast
+
+The exact intended transfer body is simulated first with strict boolean `simulate: true`. The broadcast body must be identical after removing only `simulate`.
+
+The durable request key becomes the one `Idempotency-Key` on the broadcast. The transport performs no automatic retries and follows no redirects.
+
+Structured would-revert simulation is a final no-broadcast rejection. Timeout, rate limit, idempotency conflict/in-progress, malformed response, missing provider reference, or network ambiguity becomes unknown—not permission for a new key or a second POST.
+
+### Provider status
+
+The status observer resolves only from a durable provider reference and accepts the official status vocabulary:
+
+```text
+pending · running · completed · failed
+```
+
+It honors `X-Poll-Interval-Hint`. Provider `completed` must include a canonical transaction hash and matching HTTPS explorer link, but it still does not mark an effect verified. It only supplies a candidate transaction for independent chain observation.
+
+Provider `failed` is sanitized to a boolean error-presence indicator; raw provider prose is not stored in the observation object.
+
+## Bounded HTTPS boundary
+
+The standard-library transport:
+
+- pins `https://app.keeperhub.com/api`;
+- injects an organization key explicitly;
+- blocks redirects;
+- performs no retries;
+- bounds timeout and response size;
+- requires JSON content type and valid UTF-8 JSON;
+- preserves structured HTTP error status for higher-layer classification;
+- sanitizes network errors;
+- parses official wallet-readiness and bare-array chain schemas;
+- never reads environment, keyring, browser, or process credential state.
+
+The wallet parser confirms `hasWallet`, `isActive`, canonical wallet address, and organization ID. The chain parser preserves `chainId`, `chainType`, `isTestnet`, and `isEnabled`; only enabled EVM testnets are eligible for the current project.
+
+## Independent verification and crash ordering
+
+KeeperHub acceptance, `executionId`, provider `completed`, transaction hash, and explorer link are provider observations. None alone proves the intended economic effect.
 
 When exact independent evidence proves an effect occurred:
 
@@ -73,16 +145,14 @@ possible execution + no exact proof
     → never blind resend
 ```
 
-Only a future adapter that can prove rejection before any economic effect may return a final rejection.
-
 ## Continuation planning
 
 For each canonical effect, the planner chooses exactly one class:
 
 - `SKIP_VERIFIED` — independently confirmed and never resend;
 - `EXECUTE_MISSING` — strictly planned with no possible prior economic effect;
-- `RECONCILE_REQUIRED` — in-flight, acknowledged, submitted, or unknown;
-- `MANUAL_REVIEW` — contradiction, terminal failure, or invalid durable relationship.
+- `RECONCILE_REQUIRED` — in-flight, acknowledged, submitted, provider-failed, or unknown;
+- `MANUAL_REVIEW` — contradiction, terminal durable conflict, or invalid relationship.
 
 The four amount partitions must sum exactly to the immutable Mission total.
 
@@ -90,15 +160,17 @@ The four amount partitions must sum exactly to the immutable Mission total.
 
 The Doctor is a read-only policy engine over the continuation plan plus explicit sanitized provider/chain observations. It returns per-effect diagnosis codes and one conservative overall next action. It cannot mutate product state or call an external service.
 
-## External integration boundary
+## Remaining runtime gates
 
-A future KeeperHub adapter may translate provider-neutral execution attempts into documented KeeperHub requests and observations. It must not:
+The code path is ready through the official REST boundary. Still required before any live claim:
 
-- derive or replace Mission/effect identity;
-- decide that ambiguity means failure;
-- authorize a new attempt for an unknown effect;
-- treat provider acceptance as recipient-payment proof;
-- bypass independent event verification;
-- access mainnet under the current project policy.
+1. local organization API key supplied outside Git and chat;
+2. authenticated wallet and balance confirmation;
+3. live enabled-testnet chain confirmation;
+4. exact private action sheet and transaction-specific approval;
+5. one controlled simulation and at most one broadcast;
+6. durable status observation and independent exact event verification;
+7. sanitized explorer evidence publication;
+8. frontend deployment, video recording, and final submission.
 
-Authenticated wallet readiness, a controlled testnet transaction, and public explorer evidence remain pending runtime gates.
+Mainnet and blind retry remain blocked.
