@@ -135,7 +135,7 @@ Crash rules:
 - response may have arrived but `executionId` was not durably persisted: classify `EXECUTION_UNKNOWN`, reuse no new key, and enter reconciliation;
 - persistence failure must never be converted into `FAILED_FINAL` or a second POST.
 
-The current execution journal does not yet have a durable provider-reference field. This is a P0 implementation gate before live broadcast.
+The stable execution-attempt schema remains unchanged. `SQLiteProviderExecutionReferenceStore` now provides a separate append-only journal, and `ProviderReferencePersistingPort` writes the reference before generic dispatch can acknowledge the attempt. This closes the P0 implementation gate before live broadcast at the persistence layer. KeeperHub transport wiring and live wallet readiness remain separate gates.
 
 ## Status polling and authoritative evidence
 
