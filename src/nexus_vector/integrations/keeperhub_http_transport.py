@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
-from io import BytesIO
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -51,9 +50,21 @@ def _required_text(value: Any, code: str, *, maximum: int = 256) -> str:
     return value
 
 
+def _header_value(value: Any, code: str, *, maximum: int) -> str:
+    header = _required_text(value, code, maximum=maximum)
+    if not header.isascii() or any(ord(character) <= 32 for character in header):
+        _fail(code)
+    return header
+
+
 def _api_key(value: Any) -> str:
-    key = _required_text(value, "INVALID_API_KEY", maximum=_MAX_API_KEY_LENGTH)
+    key = _header_value(value, "INVALID_API_KEY", maximum=_MAX_API_KEY_LENGTH)
     if not key.startswith("kh_") or len(key) <= 3:
+        _fail("INVALID_API_KEY")
+    if any(
+        not (character.isalnum() or character in {"_", "-"})
+        for character in key
+    ):
         _fail("INVALID_API_KEY")
     return key
 
@@ -148,8 +159,9 @@ class KeeperHubHttpTransport:
     ) -> KeeperHubTransportResponse:
         if not isinstance(body, Mapping):
             _fail("INVALID_TRANSFER_BODY")
+        key = None
         if idempotency_key is not None:
-            _required_text(
+            key = _header_value(
                 idempotency_key,
                 "INVALID_IDEMPOTENCY_KEY",
                 maximum=256,
@@ -158,7 +170,7 @@ class KeeperHubHttpTransport:
             method="POST",
             path="/execute/transfer",
             body=dict(body),
-            idempotency_key=idempotency_key,
+            idempotency_key=key,
         )
         if not isinstance(payload, Mapping):
             _fail("INVALID_TRANSFER_RESPONSE")
@@ -323,7 +335,10 @@ class KeeperHubHttpTransport:
     @staticmethod
     def _decode_response(response) -> tuple[int, Any, dict[str, str]]:
         try:
-            status = int(getattr(response, "status", response.getcode()))
+            status_value = getattr(response, "status", None)
+            if status_value is None:
+                status_value = response.getcode()
+            status = int(status_value)
         except (AttributeError, TypeError, ValueError):
             _fail("INVALID_HTTP_RESPONSE")
         headers = {
