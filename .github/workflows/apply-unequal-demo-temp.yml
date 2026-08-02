@@ -52,6 +52,9 @@ jobs:
       - name: Apply unequal 12 plus 7 plus 11 scenario
         run: python tools/apply_unequal_demo_temp.py
 
+      - name: Normalize inherited Markdown whitespace
+        run: sed -i 's/[[:space:]]\+$//' docs/RUNTIME_READINESS.md
+
       - name: Verify before commit
         env:
           PYTHONPATH: src
