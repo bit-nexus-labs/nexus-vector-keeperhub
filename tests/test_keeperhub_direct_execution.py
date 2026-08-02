@@ -19,6 +19,7 @@ from nexus_vector.domain.execution_attempts import (
     ExecutionAttemptState,
     build_execution_attempt_plan,
     create_initial_execution_attempt,
+    transition_execution_attempt,
 )
 from nexus_vector.domain.mission_models import EffectState, MissionState
 from nexus_vector.integrations.keeperhub_direct_execution import (
@@ -71,6 +72,14 @@ def make_plan(intent=None):
 
 def make_attempt(intent=None):
     return create_initial_execution_attempt(make_plan(intent), T0)
+
+
+def make_in_flight_attempt(intent=None):
+    return transition_execution_attempt(
+        make_attempt(intent),
+        ExecutionAttemptState.IN_FLIGHT,
+        T0,
+    )
 
 
 @dataclass
@@ -158,10 +167,21 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
         with self.assertRaises(KeeperHubDirectExecutionError):
             make_intent(gas_limit_multiplier="1.150")
 
+    def test_non_in_flight_attempt_never_reaches_transport(self) -> None:
+        transport = ScriptedTransport([simulation_ok(), broadcast_ok()])
+        with self.assertRaises(KeeperHubDirectExecutionError) as caught:
+            KeeperHubDirectExecutionPort(transport, make_intent()).execute(
+                make_attempt()
+            )
+        self.assertEqual(caught.exception.code, "ATTEMPT_NOT_IN_FLIGHT")
+        self.assertEqual(transport.calls, [])
+
     def test_simulation_then_one_broadcast_uses_exact_request_key(self) -> None:
         intent = make_intent()
         transport = ScriptedTransport([simulation_ok(), broadcast_ok()])
-        result = KeeperHubDirectExecutionPort(transport, intent).execute(make_attempt(intent))
+        result = KeeperHubDirectExecutionPort(transport, intent).execute(
+            make_in_flight_attempt(intent)
+        )
         self.assertEqual(result.outcome, ExecutionPortOutcome.ACCEPTED)
         self.assertEqual(result.provider_reference, EXECUTION_ID)
         self.assertEqual(len(transport.calls), 2)
@@ -177,7 +197,9 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
         changed = make_intent(amount_base_units=11)
         transport = ScriptedTransport([simulation_ok(), broadcast_ok()])
         with self.assertRaises(KeeperHubDirectExecutionError) as caught:
-            KeeperHubDirectExecutionPort(transport, changed).execute(make_attempt(original))
+            KeeperHubDirectExecutionPort(transport, changed).execute(
+                make_in_flight_attempt(original)
+            )
         self.assertEqual(caught.exception.code, "REQUEST_FINGERPRINT_MISMATCH")
         self.assertEqual(transport.calls, [])
 
@@ -195,7 +217,7 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
         ):
             transport = ScriptedTransport([response])
             result = KeeperHubDirectExecutionPort(transport, make_intent()).execute(
-                make_attempt()
+                make_in_flight_attempt()
             )
             self.assertEqual(result.outcome, ExecutionPortOutcome.REJECTED_FINAL)
             self.assertEqual(len(transport.calls), 1)
@@ -211,7 +233,7 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
                 transport = ScriptedTransport(script)
                 with self.assertRaises(KeeperHubDirectExecutionError):
                     KeeperHubDirectExecutionPort(transport, make_intent()).execute(
-                        make_attempt()
+                        make_in_flight_attempt()
                     )
 
     def test_full_dispatch_persists_execution_id_before_ack(self) -> None:
@@ -279,7 +301,9 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
             ]
         )
         with self.assertRaises(KeeperHubDirectExecutionError) as caught:
-            KeeperHubDirectExecutionPort(transport, make_intent()).execute(make_attempt())
+            KeeperHubDirectExecutionPort(transport, make_intent()).execute(
+                make_in_flight_attempt()
+            )
         self.assertEqual(caught.exception.code, "INVALID_EXECUTION_ID")
 
     def test_adapter_has_no_direct_network_secret_wallet_or_process_capability(self) -> None:
