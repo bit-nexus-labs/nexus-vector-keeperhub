@@ -1,0 +1,144 @@
+name: Temporary Mission Control browser QA
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/mission-control-browser-qa-temp.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mission-control-browser-qa-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  browser-qa:
+    if: github.head_ref == 'feature/mission-control-unequal-amounts-v2'
+    name: Exact static UI browser QA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Prepare local runtime harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -R frontend /tmp/nexus-ui-qa
+          python - <<'PY'
+          from pathlib import Path
+          index = Path('/tmp/nexus-ui-qa/index.html')
+          text = index.read_text(encoding='utf-8')
+          marker = '<script src="qa-runtime.js"></script>\n</body>'
+          if '</body>' not in text:
+              raise SystemExit('QA_BODY_MARKER_MISSING')
+          index.write_text(text.replace('</body>', marker, 1), encoding='utf-8')
+          PY
+          cat > /tmp/nexus-ui-qa/qa-runtime.js <<'JS'
+          "use strict";
+          setTimeout(() => {
+            const result = { pass: false, errors: [] };
+            const get = (id) => document.getElementById(id);
+            const check = (condition, code) => {
+              if (!condition) result.errors.push(code);
+            };
+            try {
+              check(document.title.includes("Nexus Vector"), "TITLE");
+              check(document.documentElement.scrollWidth <= document.documentElement.clientWidth, "OVERFLOW");
+              check(document.body.textContent.includes("NO LIVE TRANSACTION"), "BOUNDARY");
+
+              get("panic-retry").click();
+              check(get("decision-budget").textContent === "42 / 30 projected", "PANIC_BUDGET");
+              check(get("decision-duplicate").textContent === "1 duplicate payout risk", "PANIC_DUPLICATE");
+
+              get("safe-recovery").click();
+              check(get("decision-budget").textContent === "30 / 30 classified", "SAFE_BUDGET");
+              check(get("amount-skipped").textContent === "12", "SKIP_12");
+              check(get("amount-executable").textContent === "7", "EXECUTE_7");
+              check(get("amount-unresolved").textContent === "11", "RECONCILE_11");
+
+              document.querySelector('[data-view="technical"]').click();
+              check(get("view-technical").classList.contains("is-active"), "TECH_VIEW");
+              check(get("treasury-decision").textContent === "1 SKIP · 1 EXECUTE · 1 RECONCILE", "TREASURY");
+
+              document.querySelector('[data-view="evidence"]').click();
+              check(get("view-evidence").classList.contains("is-active"), "EVIDENCE_VIEW");
+              document.querySelector('[data-view="simple"]').click();
+
+              document.querySelector('#incident-presets button[data-step="2"]').click();
+              check(get("step-counter").textContent.includes("Step 3 of 5"), "PRESET_DROP_RESPONSE");
+              document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+              check(get("step-counter").textContent.includes("Step 4 of 5"), "KEYBOARD_NEXT");
+
+              const resources = performance.getEntriesByType("resource").map((entry) => entry.name);
+              check(resources.every((url) => url.startsWith(location.origin)), "EXTERNAL_RESOURCE");
+              result.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+              result.resourceCount = resources.length;
+              result.pass = result.errors.length === 0;
+            } catch (error) {
+              result.errors.push(`EXCEPTION:${error && error.message ? error.message : String(error)}`);
+            }
+            const output = document.createElement("pre");
+            output.id = "qa-results";
+            output.textContent = `QA_JSON:${JSON.stringify(result)}`;
+            document.body.replaceChildren(output);
+          }, 100);
+          JS
+
+      - name: Run exact desktop and mobile screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          python -m http.server 8000 --bind 127.0.0.1 --directory frontend >/tmp/nexus-ui-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 1
+          timeout 30s "$CHROME" --headless=new --no-sandbox --disable-gpu \
+            --hide-scrollbars --window-size=1440,1000 \
+            --screenshot=mission-control-desktop.png http://127.0.0.1:8000/index.html
+          timeout 30s "$CHROME" --headless=new --no-sandbox --disable-gpu \
+            --hide-scrollbars --window-size=390,844 --force-device-scale-factor=1 \
+            --screenshot=mission-control-mobile.png http://127.0.0.1:8000/index.html
+          test -s mission-control-desktop.png
+          test -s mission-control-mobile.png
+
+      - name: Run interaction and reduced-motion QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          python -m http.server 8001 --bind 127.0.0.1 --directory /tmp/nexus-ui-qa >/tmp/nexus-ui-qa-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 1
+          timeout 30s "$CHROME" --headless=new --no-sandbox --disable-gpu \
+            --virtual-time-budget=2500 --dump-dom http://127.0.0.1:8001/index.html > qa-normal.html
+          grep -F '"pass":true' qa-normal.html
+          grep -F '"reducedMotion":false' qa-normal.html
+          timeout 30s "$CHROME" --headless=new --no-sandbox --disable-gpu \
+            --force-prefers-reduced-motion=reduce --virtual-time-budget=2500 \
+            --dump-dom http://127.0.0.1:8001/index.html > qa-reduced.html
+          grep -F '"pass":true' qa-reduced.html
+          grep -F '"reducedMotion":true' qa-reduced.html
+
+      - name: Upload bounded QA evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mission-control-unequal-browser-qa
+          path: |
+            mission-control-desktop.png
+            mission-control-mobile.png
+            qa-normal.html
+            qa-reduced.html
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: false
