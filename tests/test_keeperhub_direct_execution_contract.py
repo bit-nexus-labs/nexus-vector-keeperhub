@@ -79,7 +79,8 @@ class KeeperHubDirectExecutionContractTests(unittest.TestCase):
             "transactionHash",
             "transactionLink",
             "independently verifies",
-            "Provider acceptance or `executionId` alone is insufficient",
+            "Provider acceptance alone is insufficient",
+            "`executionId` alone is also insufficient",
         ):
             self.assertIn(phrase, self.all_text)
 
