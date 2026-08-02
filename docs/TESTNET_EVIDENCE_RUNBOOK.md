@@ -144,4 +144,4 @@ A runtime claim is accepted only when the independently observed event matches:
 chain + token + expected sender + recipient + integer base-unit amount
 ```
 
-at or above the approved confirmation threshold. Provider acceptance or `executionId` alone is insufficient.
+at or above the approved confirmation threshold. Provider acceptance alone is insufficient; `executionId` alone is also insufficient.
