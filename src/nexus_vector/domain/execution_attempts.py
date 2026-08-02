@@ -32,13 +32,18 @@ class ExecutionAttemptState(str, Enum):
 
 _TRANSITIONS = {
     ExecutionAttemptState.PREPARED: frozenset(
-        {ExecutionAttemptState.IN_FLIGHT, ExecutionAttemptState.BLOCKED}
+        {
+            ExecutionAttemptState.IN_FLIGHT,
+            ExecutionAttemptState.VERIFIED,
+            ExecutionAttemptState.BLOCKED,
+        }
     ),
     ExecutionAttemptState.IN_FLIGHT: frozenset(
         {
             ExecutionAttemptState.PROVIDER_ACKNOWLEDGED,
             ExecutionAttemptState.EXECUTION_UNKNOWN,
             ExecutionAttemptState.FAILED_FINAL,
+            ExecutionAttemptState.VERIFIED,
             ExecutionAttemptState.BLOCKED,
         }
     ),
