@@ -168,6 +168,48 @@ class ProviderExecutionReferenceTests(unittest.TestCase):
             self.reference_store.initialize()
         self.assertEqual(caught.exception.code, "INCOMPATIBLE_SCHEMA")
 
+    def test_lookup_inputs_fail_closed_before_database_access(self) -> None:
+        cases = (
+            (
+                lambda: self.reference_store.get("att_not-canonical"),
+                "INVALID_ATTEMPT_ID",
+            ),
+            (
+                lambda: self.reference_store.get_by_provider_reference(
+                    " keeperhub.direct.v1",
+                    PROVIDER_REFERENCE,
+                ),
+                "INVALID_PROVIDER_NAMESPACE",
+            ),
+            (
+                lambda: self.reference_store.get_by_provider_reference(
+                    "keeperhub.direct.v1",
+                    "bad-reference\n",
+                ),
+                "INVALID_PROVIDER_REFERENCE",
+            ),
+        )
+        for operation, code in cases:
+            with self.subTest(code=code):
+                with self.assertRaises(
+                    SQLiteProviderExecutionReferenceStoreError
+                ) as caught:
+                    operation()
+                self.assertEqual(caught.exception.code, code)
+        self.assertFalse(self.reference_db.exists())
+
+    def test_invalid_port_namespace_fails_without_provider_or_database_access(self) -> None:
+        provider = AcceptedProvider()
+        with self.assertRaises(ProviderReferencePortError) as caught:
+            ProviderReferencePersistingPort(
+                provider,
+                self.reference_store,
+                provider_namespace=" keeperhub.direct.v1",
+            )
+        self.assertEqual(caught.exception.code, "INVALID_PROVIDER_NAMESPACE")
+        self.assertEqual(provider.calls, 0)
+        self.assertFalse(self.reference_db.exists())
+
     def test_dispatch_persists_provider_reference_before_acknowledgement(self) -> None:
         provider = AcceptedProvider()
         port = ProviderReferencePersistingPort(
@@ -216,11 +258,12 @@ class ProviderExecutionReferenceTests(unittest.TestCase):
         self.assertEqual(reference.provider_reference, PROVIDER_REFERENCE)
         self.assertEqual(reopened_attempts.list_recovery_candidates(), (attempt,))
 
-    def test_reference_persistence_failure_makes_attempt_unknown(self) -> None:
+    def test_preflight_failure_blocks_provider_call_and_marks_attempt_unknown(self) -> None:
         with sqlite3.connect(self.reference_db) as connection:
             connection.execute("CREATE TABLE foreign_table (id INTEGER)")
+        provider = AcceptedProvider()
         port = ProviderReferencePersistingPort(
-            AcceptedProvider(),
+            provider,
             self.reference_store,
             provider_namespace="keeperhub.direct.v1",
         )
@@ -230,16 +273,45 @@ class ProviderExecutionReferenceTests(unittest.TestCase):
                 self.attempt_store,
             ).dispatch(make_plan(), port, T0)
         self.assertEqual(caught.exception.code, "EXECUTION_OUTCOME_UNKNOWN")
+        self.assertEqual(provider.calls, 0)
         durable = self.attempt_store.get(make_plan().attempt_id)
         self.assertEqual(durable.record.state, ExecutionAttemptState.EXECUTION_UNKNOWN)
 
+    def test_post_call_reference_write_failure_marks_attempt_unknown(self) -> None:
+        class FailCreateStore(SQLiteProviderExecutionReferenceStore):
+            def create(self, record):
+                raise SQLiteProviderExecutionReferenceStoreError("DATABASE_ERROR")
+
+        provider = AcceptedProvider()
+        failing_store = FailCreateStore(self.reference_db)
+        port = ProviderReferencePersistingPort(
+            provider,
+            failing_store,
+            provider_namespace="keeperhub.direct.v1",
+        )
+        with self.assertRaises(ExecutionDispatchError) as caught:
+            ExecutionDispatchService(
+                FakeMissionLookup(),
+                self.attempt_store,
+            ).dispatch(make_plan(), port, T0)
+        self.assertEqual(caught.exception.code, "EXECUTION_OUTCOME_UNKNOWN")
+        self.assertEqual(provider.calls, 1)
+        durable = self.attempt_store.get(make_plan().attempt_id)
+        self.assertEqual(durable.record.state, ExecutionAttemptState.EXECUTION_UNKNOWN)
+        self.assertIsNone(failing_store.get(make_plan().attempt_id))
+
     def test_final_rejection_creates_no_provider_reference(self) -> None:
         class RejectedProvider:
+            def __init__(self) -> None:
+                self.calls = 0
+
             def execute(self, attempt):
+                self.calls += 1
                 return ProviderExecutionResult(ExecutionPortOutcome.REJECTED_FINAL)
 
+        provider = RejectedProvider()
         port = ProviderReferencePersistingPort(
-            RejectedProvider(),
+            provider,
             self.reference_store,
             provider_namespace="keeperhub.direct.v1",
         )
@@ -248,7 +320,8 @@ class ProviderExecutionReferenceTests(unittest.TestCase):
             self.attempt_store,
         ).dispatch(make_plan(), port, T0)
         self.assertEqual(result.record.state, ExecutionAttemptState.FAILED_FINAL)
-        self.assertFalse(self.reference_db.exists())
+        self.assertEqual(provider.calls, 1)
+        self.assertIsNone(self.reference_store.get(make_plan().attempt_id))
 
     def test_missing_or_unexpected_reference_fails_before_journal_write(self) -> None:
         with self.assertRaises(ProviderReferencePortError) as missing:
