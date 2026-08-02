@@ -43,7 +43,7 @@ class PagesDeploymentWorkflowTests(unittest.TestCase):
         self.assertNotIn("wget ", self.text)
 
     def test_all_actions_are_exact_sha_pinned(self) -> None:
-        uses = re.findall(r"(?m)^\s*uses:\s*([^\s]+)$", self.text)
+        uses = re.findall(r"(?m)^\s*uses:\s*([^\s#]+)(?:\s+#.*)?$", self.text)
         self.assertEqual(len(uses), 4)
         for value in uses:
             with self.subTest(value=value):
