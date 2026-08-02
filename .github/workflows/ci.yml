@@ -41,11 +41,14 @@ jobs:
       - name: Show Python version
         run: python --version
 
-      - name: Compile Mission Identity
-        run: >-
-          python -m py_compile
-          src/nexus_vector/domain/mission_identity.py
-          tests/test_mission_identity.py
+      - name: Compile Python sources
+        run: python -m compileall -q src tests tools
+
+      - name: Verify repository hygiene
+        run: python tools/verify_repository_hygiene.py
+
+      - name: Verify public evidence
+        run: python tools/verify_public_evidence.py
 
       - name: Run standard-library tests
         env:
