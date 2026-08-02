@@ -1,7 +1,7 @@
 {
   "schema": "nexus-vector.public-evidence.v1",
   "classification": "SANITIZED_PUBLIC",
-  "generated_at_utc": "2026-08-02T20:15:00Z",
+  "generated_at_utc": "2026-08-02T20:18:00Z",
   "project": {
     "name": "Nexus Vector — Mission-Safe Agent Payments",
     "promise": "The agent can retry. The money cannot duplicate.",
@@ -103,7 +103,7 @@
     },
     {
       "path": "frontend/app.js",
-      "sha256": "15b8f2885fd701657c00f7ff31cd390686f94298d3c2656259fa5ed50eddfe00",
+      "sha256": "4334bddde7f89a0323e0d6e5bda60dbd76f8718af40747b7f312566866eec4ef",
       "classification": "PUBLIC_STATIC_UI",
       "is_transaction_evidence": false
     },
