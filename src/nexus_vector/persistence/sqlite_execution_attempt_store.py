@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -20,6 +21,8 @@ from nexus_vector.domain.execution_attempts import (
 
 _SCHEMA_VERSION = 1
 _BUSY_TIMEOUT_MILLISECONDS = 5_000
+_JOURNAL_MODE_RETRY_ATTEMPTS = 10
+_JOURNAL_MODE_RETRY_DELAY_SECONDS = 0.02
 _RECOVERY_STATES = frozenset(
     {
         ExecutionAttemptState.PREPARED,
@@ -130,12 +133,34 @@ class SQLiteExecutionAttemptStore:
             connection.row_factory = sqlite3.Row
             connection.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MILLISECONDS}")
             if self._database_path != ":memory:":
-                connection.execute("PRAGMA journal_mode = WAL")
+                self._enable_wal_with_bounded_retry(connection)
             connection.execute("PRAGMA synchronous = FULL")
             return connection
         except sqlite3.DatabaseError:
             connection.close()
             raise
+
+    @staticmethod
+    def _enable_wal_with_bounded_retry(
+        connection: sqlite3.Connection,
+    ) -> None:
+        for attempt in range(_JOURNAL_MODE_RETRY_ATTEMPTS):
+            try:
+                row = connection.execute("PRAGMA journal_mode = WAL").fetchone()
+                if row is None or str(row[0]).casefold() != "wal":
+                    raise sqlite3.OperationalError("journal mode unavailable")
+                return
+            except sqlite3.OperationalError as error:
+                message = str(error).casefold()
+                retryable = "locked" in message or "busy" in message
+                if (
+                    not retryable
+                    or attempt + 1 == _JOURNAL_MODE_RETRY_ATTEMPTS
+                ):
+                    raise
+                time.sleep(
+                    _JOURNAL_MODE_RETRY_DELAY_SECONDS * (attempt + 1)
+                )
 
     def _read(self, operation: Callable[[sqlite3.Connection], _T]) -> _T:
         try:
@@ -299,7 +324,10 @@ class SQLiteExecutionAttemptStore:
             current = self._load(connection, attempt_id)
             if current is None:
                 _fail("ATTEMPT_NOT_FOUND")
-            if type(expected_revision) is not int or current.revision != expected_revision:
+            if (
+                type(expected_revision) is not int
+                or current.revision != expected_revision
+            ):
                 _fail("STALE_REVISION")
             transitioned = transition_execution_attempt(
                 current.record,
@@ -326,8 +354,16 @@ class SQLiteExecutionAttemptStore:
         return self._write(operation)
 
     def list_recovery_candidates(self) -> tuple[StoredExecutionAttempt, ...]:
-        def operation(connection: sqlite3.Connection) -> tuple[StoredExecutionAttempt, ...]:
-            values = tuple(state.value for state in sorted(_RECOVERY_STATES, key=lambda x: x.value))
+        def operation(
+            connection: sqlite3.Connection,
+        ) -> tuple[StoredExecutionAttempt, ...]:
+            values = tuple(
+                state.value
+                for state in sorted(
+                    _RECOVERY_STATES,
+                    key=lambda item: item.value,
+                )
+            )
             placeholders = ",".join("?" for _ in values)
             ids = tuple(
                 str(row[0])
