@@ -80,8 +80,11 @@ class ProviderReferencePersistingPort:
 
         try:
             self._reference_store.initialize()
+            existing = self._reference_store.get(attempt.attempt_id)
         except SQLiteProviderExecutionReferenceStoreError as error:
             raise ProviderReferencePortError(error.code) from None
+        if existing is not None:
+            _fail("PROVIDER_REFERENCE_ALREADY_EXISTS")
 
         result = self._provider_port.execute(attempt)
         if not isinstance(result, ProviderExecutionResult):
