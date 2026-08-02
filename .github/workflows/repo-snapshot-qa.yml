@@ -6,6 +6,17 @@ on:
       - feature/mission-control-unequal-amounts-v2
     paths:
       - ".github/workflows/repo-snapshot-qa.yml"
+  pull_request:
+    paths:
+      - ".github/workflows/repo-snapshot-qa.yml"
+      - "README.md"
+      - "docs/**"
+      - "evidence/**"
+      - "frontend/**"
+      - "src/**"
+      - "tests/**"
+      - "tools/**"
+      - "pyproject.toml"
 
 permissions:
   contents: read
