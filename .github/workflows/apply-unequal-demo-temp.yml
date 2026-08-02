@@ -1,9 +1,9 @@
 name: Temporary apply unequal Mission Control demo
 
 on:
-  push:
+  pull_request:
     branches:
-      - feature/mission-control-unequal-amounts-v2
+      - main
     paths:
       - "tools/apply_unequal_demo_temp.py"
       - ".github/workflows/apply-unequal-demo-temp.yml"
@@ -12,20 +12,21 @@ permissions:
   contents: write
 
 concurrency:
-  group: apply-unequal-demo-${{ github.ref }}
+  group: apply-unequal-demo-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
   apply:
+    if: github.head_ref == 'feature/mission-control-unequal-amounts-v2'
     name: Carry reviewed UI and apply deterministic scenario patch
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
-      - name: Checkout exact branch
+      - name: Checkout exact PR branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: feature/mission-control-unequal-amounts-v2
+          ref: ${{ github.head_ref }}
           fetch-depth: 1
           persist-credentials: true
 
@@ -77,4 +78,4 @@ jobs:
           git add -A
           git diff --cached --check
           git commit -m "Refresh Mission Control with unequal payment effects"
-          git push origin HEAD:feature/mission-control-unequal-amounts-v2
+          git push origin HEAD:${{ github.head_ref }}
