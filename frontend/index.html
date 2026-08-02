@@ -8,46 +8,169 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="ambient ambient-one" aria-hidden="true"></div>
-  <div class="ambient ambient-two" aria-hidden="true"></div>
+  <div class="grid-field" aria-hidden="true"></div>
+  <div class="orbit orbit-one" aria-hidden="true"></div>
+  <div class="orbit orbit-two" aria-hidden="true"></div>
 
   <header class="site-header">
     <a class="brand" href="#top" aria-label="Nexus Vector home">
-      <span class="brand-mark" aria-hidden="true">NV</span>
+      <span class="brand-mark" aria-hidden="true"><span>NV</span></span>
       <span><strong>Nexus Vector</strong><small>Mission-Safe Agent Payments</small></span>
     </a>
-    <div class="mode-badge"><span class="pulse"></span> REPLAY · SANITIZED</div>
+    <div class="header-status">
+      <span class="system-indicator"><i aria-hidden="true"></i> SYSTEM ONLINE</span>
+      <span class="mode-badge">REPLAY · SANITIZED</span>
+    </div>
   </header>
 
   <main id="top">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">KeeperHub hackathon · deterministic recovery layer</p>
-        <h1>The agent can retry.<br><span>The money cannot duplicate.</span></h1>
-        <p class="hero-copy">A durable Mission, one canonical attempt per effect, independent verification, and a deterministic Doctor that never turns uncertainty into permission to pay again.</p>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy-block">
+        <p class="eyebrow">KeeperHub hackathon · mission control 07</p>
+        <h1 id="hero-title">The agent can retry.<br><span>The money cannot duplicate.</span></h1>
+        <p class="hero-copy">A lost response creates one dangerous question: send again, or prove what happened first? Nexus Vector turns uncertainty into a deterministic recovery plan.</p>
+        <div class="hero-proof-strip" aria-label="Core safety properties">
+          <span>Durable Mission</span>
+          <span>One canonical effect</span>
+          <span>Independent verification</span>
+        </div>
       </div>
-      <aside class="safety-card" aria-label="Replay safety boundary">
-        <p class="safety-kicker">Public demo boundary</p>
-        <strong>NO LIVE TRANSACTION</strong>
-        <p>This interface uses curated, sanitized replay data. It has no wallet, API, RPC, signing, or broadcast capability.</p>
+
+      <aside class="telemetry-console" aria-label="Incident telemetry">
+        <div class="console-topline">
+          <span>INCIDENT 07</span>
+          <span class="signal-lost"><i aria-hidden="true"></i> SIGNAL LOST</span>
+        </div>
+        <div class="telemetry-orb" aria-hidden="true">
+          <span class="orb-core"></span>
+          <span class="orb-ring ring-one"></span>
+          <span class="orb-ring ring-two"></span>
+          <span class="orb-sweep"></span>
+        </div>
+        <dl class="telemetry-list">
+          <div><dt>Mission</dt><dd>30 demo units</dd></div>
+          <div><dt>Recipients</dt><dd>3 canonical effects</dd></div>
+          <div><dt>Last trusted state</dt><dd>ATTEMPT IN_FLIGHT</dd></div>
+          <div><dt>Agent confidence</dt><dd class="status-warning">OUTCOME UNKNOWN</dd></div>
+        </dl>
+        <p class="console-boundary">CURATED REPLAY · NO LIVE TRANSACTION</p>
       </aside>
     </section>
 
+    <section class="dilemma" aria-labelledby="dilemma-title">
+      <div class="section-heading">
+        <div>
+          <p class="section-label">The judge's dilemma</p>
+          <h2 id="dilemma-title">The response vanished after the first execution. What happens next?</h2>
+        </div>
+        <span class="read-only">INTERACTIVE REPLAY</span>
+      </div>
+
+      <div class="decision-grid">
+        <button id="panic-retry" class="decision-button unsafe-choice" type="button" aria-pressed="false">
+          <span class="decision-index">01 · COUNTERFACTUAL</span>
+          <strong>Panic retry</strong>
+          <small>Resend the intent without proving the first outcome.</small>
+          <span class="button-callout">PROJECT DUPLICATE RISK</span>
+        </button>
+        <button id="safe-recovery" class="decision-button safe-choice" type="button" aria-pressed="false">
+          <span class="decision-index">02 · NEXUS VECTOR</span>
+          <strong>Safe recovery</strong>
+          <small>Open the durable record, reconcile evidence, continue only missing work.</small>
+          <span class="button-callout">RUN RECOVERY PROTOCOL</span>
+        </button>
+      </div>
+
+      <article id="decision-stage" class="decision-stage" data-decision="neutral" aria-live="polite">
+        <div class="decision-stage-head">
+          <div>
+            <p id="decision-kicker" class="section-label">Awaiting decision</p>
+            <h3 id="decision-title">Choose a path to compare outcomes</h3>
+          </div>
+          <span id="decision-status" class="decision-status">STANDBY</span>
+        </div>
+        <p id="decision-summary">This is a curated, non-executing demonstration. Neither choice sends a request, signs a transaction, or moves funds.</p>
+        <div class="decision-metrics">
+          <div><span>Budget state</span><strong id="decision-budget">30 / 30 planned</strong></div>
+          <div><span>Duplicate authority</span><strong id="decision-duplicate">not evaluated</strong></div>
+          <div><span>Recovery route</span><strong id="decision-route">awaiting input</strong></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="worldlines" aria-labelledby="worldlines-title">
+      <div class="section-heading compact-heading">
+        <div>
+          <p class="section-label">Two possible timelines</p>
+          <h2 id="worldlines-title">One timeout. Two treasury outcomes.</h2>
+        </div>
+      </div>
+      <div class="worldline-grid">
+        <article class="worldline unsafe-worldline">
+          <header><span>ALPHA</span><strong>Without a recovery layer</strong></header>
+          <ol>
+            <li><span>01</span>Response disappears after execution</li>
+            <li><span>02</span>Agent assumes failure</li>
+            <li><span>03</span>Same economic effect is sent again</li>
+          </ol>
+          <div class="worldline-result">
+            <span>Projected counterfactual</span>
+            <strong>40 / 30</strong>
+            <small>demo-unit exposure · duplicate payout risk</small>
+          </div>
+        </article>
+        <article class="worldline safe-worldline">
+          <header><span>BETA</span><strong>With Nexus Vector</strong></header>
+          <ol>
+            <li><span>01</span>Unknown outcome stays durable</li>
+            <li><span>02</span>Independent evidence is reconciled</li>
+            <li><span>03</span>Only missing work remains eligible</li>
+          </ol>
+          <div class="worldline-result">
+            <span>Deterministic classification</span>
+            <strong>30 / 30</strong>
+            <small>classified once · no duplicate authorization</small>
+          </div>
+        </article>
+      </div>
+      <p class="counterfactual-note">ALPHA is a counterfactual risk projection, not an executed transaction. BETA is a curated replay classification, not proof that funds moved.</p>
+    </section>
+
+    <section class="black-box" aria-labelledby="black-box-title">
+      <div class="black-box-copy">
+        <p class="section-label">Flight recorder for agent money</p>
+        <h2 id="black-box-title">When the agent loses the response, the Mission does not lose the truth.</h2>
+        <p>The durable Mission, canonical attempt and sanitized evidence form a black box that survives restart. Uncertainty becomes reconciliation—not permission to pay again.</p>
+        <button id="open-black-box" class="primary-action" type="button">Open black box &amp; reconcile</button>
+      </div>
+      <div class="flight-recorder" aria-label="Black box recovery sequence">
+        <div><span>00:00.000</span><strong>MISSION_PERSISTED</strong><small>30 demo units · 3 effects</small></div>
+        <div><span>00:00.481</span><strong>ATTEMPT_IN_FLIGHT</strong><small>durable before provider boundary</small></div>
+        <div class="recorder-alert"><span>00:01.204</span><strong>CLIENT_RESPONSE_LOST</strong><small>outcome remains unknown</small></div>
+        <div><span>RESTART</span><strong>RECONCILIATION_REQUIRED</strong><small>blind retry denied</small></div>
+      </div>
+    </section>
+
     <nav class="view-tabs" aria-label="Demo views">
-      <button class="tab is-active" data-view="simple" aria-selected="true">Simple</button>
-      <button class="tab" data-view="technical" aria-selected="false">Technical</button>
-      <button class="tab" data-view="evidence" aria-selected="false">Evidence</button>
+      <button class="tab is-active" data-view="simple" aria-selected="true" type="button">Mission</button>
+      <button class="tab" data-view="technical" aria-selected="false" type="button">Treasury gate</button>
+      <button class="tab" data-view="evidence" aria-selected="false" type="button">Evidence</button>
     </nav>
 
     <section class="replay-control" aria-labelledby="replay-heading">
       <div>
-        <p class="section-label">Curated 10 + 10 + 10 replay</p>
+        <p class="section-label">Curated incident presets</p>
         <h2 id="replay-heading">Failure, restart, safe continuation</h2>
       </div>
       <div class="step-controls">
-        <button id="previous-step" class="icon-button" aria-label="Previous replay step">←</button>
+        <button id="previous-step" class="icon-button" aria-label="Previous replay step" type="button">←</button>
         <span id="step-counter" aria-live="polite"></span>
-        <button id="next-step" class="icon-button" aria-label="Next replay step">→</button>
+        <button id="next-step" class="icon-button" aria-label="Next replay step" type="button">→</button>
+      </div>
+      <div id="incident-presets" class="incident-presets" aria-label="Curated incident presets">
+        <button type="button" data-step="2">Drop response</button>
+        <button type="button" data-step="3">Process restart</button>
+        <button type="button" data-step="4">Safe continuation</button>
       </div>
       <div class="timeline" id="timeline" aria-label="Replay timeline"></div>
     </section>
@@ -55,13 +178,13 @@
     <section id="view-simple" class="view-panel is-active">
       <div class="mission-summary">
         <article class="metric-card">
-          <span>Total Mission</span><strong id="mission-total">30</strong><small>immutable base units</small>
+          <span>Total Mission</span><strong id="mission-total">30</strong><small>immutable demo units</small>
         </article>
         <article class="metric-card safe">
           <span>Already verified</span><strong id="amount-skipped">10</strong><small>skip forever</small>
         </article>
         <article class="metric-card ready">
-          <span>Missing</span><strong id="amount-executable">10</strong><small>eligible only after policy gates</small>
+          <span>Missing</span><strong id="amount-executable">10</strong><small>eligible after policy gates</small>
         </article>
         <article class="metric-card warning">
           <span>Unknown</span><strong id="amount-unresolved">10</strong><small>reconcile, never blind retry</small>
@@ -81,6 +204,25 @@
     </section>
 
     <section id="view-technical" class="view-panel">
+      <div class="treasury-gate panel">
+        <div class="panel-heading">
+          <div><p class="section-label">Zero-trust treasury gate</p><h2>Every effect presents evidence before authority.</h2></div>
+          <span class="read-only">READ ONLY</span>
+        </div>
+        <div class="gate-checks" aria-label="Treasury safety checks">
+          <div><span class="gate-icon">✓</span><p><strong>Mission identity</strong><small id="gate-identity">canonical effect set recognized</small></p></div>
+          <div><span class="gate-icon">✓</span><p><strong>Immutable budget</strong><small id="gate-budget">partition equals 30 demo units</small></p></div>
+          <div><span class="gate-icon">✓</span><p><strong>Durable attempt</strong><small id="gate-attempt">attempt persisted before boundary</small></p></div>
+          <div class="gate-caution"><span class="gate-icon">!</span><p><strong>Evidence policy</strong><small id="gate-evidence">unknown work requires reconciliation</small></p></div>
+          <div><span class="gate-icon">✓</span><p><strong>Continuation authority</strong><small id="gate-continuation">duplicate authorization denied</small></p></div>
+        </div>
+        <div class="treasury-decision">
+          <span>TREASURY DECISION</span>
+          <strong id="treasury-decision">1 SKIP · 1 EXECUTE · 1 RECONCILE</strong>
+          <small>Classification is deterministic data, not a live execution authorization.</small>
+        </div>
+      </div>
+
       <div class="technical-grid">
         <article class="panel">
           <p class="section-label">Mission state machine</p>
@@ -133,7 +275,7 @@
   </main>
 
   <footer>
-    <p>Nexus Vector · curated replay artifact</p>
+    <p>Nexus Vector · mission control replay artifact</p>
     <p>REPLAY / SANITIZED / NO LIVE TRANSACTION</p>
   </footer>
 
