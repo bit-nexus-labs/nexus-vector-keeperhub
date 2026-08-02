@@ -40,6 +40,37 @@ def _required_text(value: Any, *, code: str, maximum: int) -> str:
     return normalized
 
 
+def validate_attempt_id(value: Any) -> str:
+    if not isinstance(value, str) or _ATTEMPT_ID_PATTERN.fullmatch(value) is None:
+        _fail("INVALID_ATTEMPT_ID")
+    return value
+
+
+def validate_request_fingerprint(value: Any) -> str:
+    if (
+        not isinstance(value, str)
+        or _REQUEST_FINGERPRINT_PATTERN.fullmatch(value) is None
+    ):
+        _fail("INVALID_REQUEST_FINGERPRINT")
+    return value
+
+
+def normalize_provider_namespace(value: Any) -> str:
+    return _required_text(
+        value,
+        code="INVALID_PROVIDER_NAMESPACE",
+        maximum=_MAX_NAMESPACE_LENGTH,
+    )
+
+
+def normalize_provider_reference(value: Any) -> str:
+    return _required_text(
+        value,
+        code="INVALID_PROVIDER_REFERENCE",
+        maximum=_MAX_REFERENCE_LENGTH,
+    )
+
+
 def _utc(value: Any) -> datetime:
     if not isinstance(value, datetime) or value.tzinfo is None:
         _fail("INVALID_TIMESTAMP")
@@ -63,32 +94,20 @@ class ProviderExecutionReference:
     created_at_utc: datetime
 
     def __post_init__(self) -> None:
-        if (
-            not isinstance(self.attempt_id, str)
-            or _ATTEMPT_ID_PATTERN.fullmatch(self.attempt_id) is None
-        ):
-            _fail("INVALID_ATTEMPT_ID")
-        if (
-            not isinstance(self.request_fingerprint, str)
-            or _REQUEST_FINGERPRINT_PATTERN.fullmatch(self.request_fingerprint) is None
-        ):
-            _fail("INVALID_REQUEST_FINGERPRINT")
+        object.__setattr__(self, "attempt_id", validate_attempt_id(self.attempt_id))
+        object.__setattr__(
+            self,
+            "request_fingerprint",
+            validate_request_fingerprint(self.request_fingerprint),
+        )
         object.__setattr__(
             self,
             "provider_namespace",
-            _required_text(
-                self.provider_namespace,
-                code="INVALID_PROVIDER_NAMESPACE",
-                maximum=_MAX_NAMESPACE_LENGTH,
-            ),
+            normalize_provider_namespace(self.provider_namespace),
         )
         object.__setattr__(
             self,
             "provider_reference",
-            _required_text(
-                self.provider_reference,
-                code="INVALID_PROVIDER_REFERENCE",
-                maximum=_MAX_REFERENCE_LENGTH,
-            ),
+            normalize_provider_reference(self.provider_reference),
         )
         object.__setattr__(self, "created_at_utc", _utc(self.created_at_utc))
