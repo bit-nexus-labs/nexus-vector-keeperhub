@@ -1,7 +1,7 @@
 {
   "schema": "nexus-vector.public-evidence.v1",
   "classification": "SANITIZED_PUBLIC",
-  "generated_at_utc": "2026-08-02T18:30:00Z",
+  "generated_at_utc": "2026-08-02T22:05:00Z",
   "project": {
     "name": "Nexus Vector — Mission-Safe Agent Payments",
     "promise": "The agent can retry. The money cannot duplicate.",
@@ -37,7 +37,7 @@
       "claim_id": "deterministic_partial_continuation",
       "status": "OFFLINE_VERIFIED",
       "merge_commit": "f8714111344cbee3054158ef21ca27406b386722",
-      "evidence": "The 10 + 10 + 10 case partitions exactly into skip 10, execute 10 and reconcile 10."
+      "evidence": "The unequal 12 + 7 + 11 case partitions exactly into skip 12, execute 7 and reconcile 11."
     },
     {
       "claim_id": "execution_doctor",
@@ -49,7 +49,7 @@
       "claim_id": "static_replay_ui",
       "status": "OFFLINE_VERIFIED",
       "merge_commit": "d10eb0e3b9fb6decb1ea2072e34b577dd52691b4",
-      "evidence": "Dependency-free Simple, Technical and Evidence views render curated replay data only."
+      "evidence": "Dependency-free Mission, Treasury Gate and Evidence views render curated replay data only; exact current bytes are bound by the artifact digests below."
     },
     {
       "claim_id": "keeperhub_contract_review",
@@ -62,6 +62,12 @@
       "status": "OFFLINE_VERIFIED",
       "merge_commit": "d1065510260e77b71ba47cef795e2b2cd195698b",
       "evidence": "The provider execution reference is stored durably before provider acknowledgement and survives restart."
+    },
+    {
+      "claim_id": "provider_reference_preflight_hardening",
+      "status": "OFFLINE_VERIFIED",
+      "merge_commit": "795d86f93b110b3d0ff5b6df91bdc9fc39d06d23",
+      "evidence": "The provider-reference schema and existing-reference guard are checked before any provider call; known preflight failure produces zero provider calls."
     },
     {
       "claim_id": "keeperhub_direct_execution_adapter",
@@ -91,25 +97,25 @@
   "artifacts": [
     {
       "path": "frontend/index.html",
-      "sha256": "02b3bb28efe5fa7ab3d6ffa7c2a84abfe44975649f32e0e74f5c7ed47d6da826",
+      "sha256": "14827a14c07b9d0fe7a8b10d2003e49cf8aabdaa019f91207251ddd75743bbcc",
       "classification": "PUBLIC_STATIC_UI",
       "is_transaction_evidence": false
     },
     {
       "path": "frontend/styles.css",
-      "sha256": "1dce9556077cad892da38e516d577bf848c67374df89f1091a63a68c3452a275",
+      "sha256": "5413c783eb84b55412e76ff066835ef01dcf4e5926a5f2b6a00b66664c40542d",
       "classification": "PUBLIC_STATIC_UI",
       "is_transaction_evidence": false
     },
     {
       "path": "frontend/app.js",
-      "sha256": "7d75ce0d565512f954e8517bcf853b62ef8ce49e79345891fa42cdd97dc57857",
+      "sha256": "dcbdd6d6c8fa7664f5a815a0d04ce1790b5f56a33dbac18f6fced2d5c25feeb9",
       "classification": "PUBLIC_STATIC_UI",
       "is_transaction_evidence": false
     },
     {
       "path": "frontend/replay/mission-safe-30.js",
-      "sha256": "f33f99394506c763be52be7a0cb3441e42b2be846cb7c6fd9c5a06ee7cd6d654",
+      "sha256": "70705e06e8358dec438e66c3e82ac445ee3d9302b1c0cd4231694e8d27128f1a",
       "classification": "CURATED_REPLAY",
       "is_transaction_evidence": false
     }

@@ -122,25 +122,25 @@ class ContinuationPlannerTests(unittest.TestCase):
                 T0,
             )
 
-    def test_10_10_10_plan_skips_paid_executes_missing_and_reconciles_unknown(
+    def test_12_7_11_plan_skips_paid_executes_missing_and_reconciles_unknown(
         self,
     ):
         anna = FakeEffect(
             "anna",
             effect_id("2"),
-            10,
+            12,
             EffectState.CHAIN_CONFIRMED,
         )
         mark = FakeEffect(
             "mark",
             effect_id("3"),
-            10,
+            7,
             EffectState.PLANNED,
         )
         leo = FakeEffect(
             "leo",
             effect_id("4"),
-            10,
+            11,
             EffectState.EXECUTION_UNKNOWN,
         )
         self.store_attempt(
@@ -181,9 +181,9 @@ class ContinuationPlannerTests(unittest.TestCase):
             ContinuationAction.RECONCILE_REQUIRED,
         )
         self.assertEqual(plan.total_amount_base_units, 30)
-        self.assertEqual(plan.skipped_amount_base_units, 10)
-        self.assertEqual(plan.executable_amount_base_units, 10)
-        self.assertEqual(plan.unresolved_amount_base_units, 10)
+        self.assertEqual(plan.skipped_amount_base_units, 12)
+        self.assertEqual(plan.executable_amount_base_units, 7)
+        self.assertEqual(plan.unresolved_amount_base_units, 11)
         self.assertEqual(plan.manual_review_amount_base_units, 0)
         self.assertEqual(plan.executable_effect_ids, (mark.effect_id,))
         self.assertTrue(plan.requires_reconciliation)

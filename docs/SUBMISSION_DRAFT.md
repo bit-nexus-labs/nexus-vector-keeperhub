@@ -31,12 +31,12 @@ Nexus Vector places a provider-neutral Mission Core above execution:
 
 ## Demonstrated scenario
 
-In the curated 10 + 10 + 10 replay:
+In the curated 12 + 7 + 11 replay:
 
-- Anna: independently verified and skipped — 10;
-- Mark: missing and a future execution candidate — 10;
-- Leo: execution outcome unknown and reconciliation-required — 10;
-- total: exactly 30, classified once with no overlap.
+- Anna: independently verified and skipped — 12;
+- Mark: missing and a future execution candidate — 7;
+- Leo: execution outcome unknown and reconciliation-required — 11;
+- total: exactly 30, classified once with no overlap; a blind duplicate of Anna's effect is shown only as a 42 / 30 counterfactual projection.
 
 ## Architecture
 
@@ -53,8 +53,8 @@ In the curated 10 + 10 + 10 replay:
 ## What is complete
 
 - durable offline product core;
-- concurrency, restart, lost-response, cross-store crash, duplicate suppression, and 10 + 10 + 10 SQLite integration tests;
-- Simple, Technical, and Evidence replay views;
+- concurrency, restart, lost-response, cross-store crash, duplicate suppression, and unequal-amount 12 + 7 + 11 SQLite integration tests;
+- Mission, Treasury Gate, and Evidence replay views;
 - public evidence manifest with reviewed commit references and artifact hashes;
 - current README, architecture, state-machine, and starter documentation;
 - GitHub CI on Python 3.12 and 3.14.

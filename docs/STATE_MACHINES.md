@@ -69,18 +69,18 @@ FAILED_FINAL
 | effect confirmed, attempt not verified | repeat read-only projection/reconciliation | send again |
 | effect confirmed, attempt verified | skip forever | execute |
 
-## 10 + 10 + 10 acceptance matrix
+## 12 + 7 + 11 acceptance matrix
 
 | Effect | Durable evidence | Continuation |
 |---|---|---|
-| Anna · 10 | `CHAIN_CONFIRMED` + attempt `VERIFIED` | `SKIP_VERIFIED` |
-| Mark · 10 | `PLANNED` + no possible prior effect | `EXECUTE_MISSING` |
-| Leo · 10 | effect/attempt `EXECUTION_UNKNOWN` | `RECONCILE_REQUIRED` |
+| Anna · 12 | `CHAIN_CONFIRMED` + attempt `VERIFIED` | `SKIP_VERIFIED` |
+| Mark · 7 | `PLANNED` + no possible prior effect | `EXECUTE_MISSING` |
+| Leo · 11 | effect/attempt `EXECUTION_UNKNOWN` | `RECONCILE_REQUIRED` |
 
 The accepted partition is exactly:
 
 ```text
-skip 10 + execute 10 + reconcile 10 + manual 0 = Mission total 30
+skip 12 + execute 7 + reconcile 11 + manual 0 = Mission total 30
 ```
 
 This is currently verified offline with real SQLite integration tests. Actual KeeperHub testnet completion remains a separate runtime gate.

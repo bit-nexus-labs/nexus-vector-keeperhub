@@ -36,7 +36,7 @@ Business Mission
 - ambiguous, malformed, timed-out, or forged outcomes classified as `EXECUTION_UNKNOWN`;
 - single-writer concurrency through non-expiring revision-CAS claims;
 - restart and lost-response reconciliation without blind resend;
-- deterministic 10 + 10 + 10 continuation planning;
+- deterministic unequal-amount 12 + 7 + 11 continuation planning;
 - read-only Execution Doctor service and strict sanitized JSON CLI.
 
 ### KeeperHub integration boundary
@@ -46,6 +46,7 @@ Business Mission
 - testnet-only transfer intent and economic fingerprint revalidation before simulation;
 - strict simulation/body parity and one durable `Idempotency-Key` on broadcast;
 - append-only SQLite provider-reference journal;
+- provider-reference schema and existing-reference guard checked before the provider call;
 - provider `executionId` persisted before `PROVIDER_ACKNOWLEDGED`;
 - crash-safe recovery when the reference is durable but ACK is incomplete;
 - read-only provider status parsing with `X-Poll-Interval-Hint` enforcement;
@@ -56,7 +57,7 @@ Business Mission
 
 ### Presentation and evidence
 
-- dependency-free Simple, Technical, and Evidence replay views;
+- dependency-free Mission, Treasury Gate, and Evidence replay views;
 - sanitized public evidence manifest with artifact hashes and tamper tests;
 - demo video script, submission draft, testnet runbook, office-hours questions, and freeze checklist;
 - repository-wide compile, hygiene, evidence, and standard-library tests on Python 3.12 and 3.14.
@@ -75,13 +76,13 @@ Business Mission
 10. Every effect is classified exactly once and all partitions equal the immutable Mission total.
 11. Mainnet is blocked by project policy.
 
-## 10 + 10 + 10 replay
+## 12 + 7 + 11 replay
 
 The curated replay demonstrates:
 
-- **Anna — 10:** independently verified and permanently skipped;
-- **Mark — 10:** missing and only a future execution candidate after policy gates;
-- **Leo — 10:** execution outcome unknown and therefore reconciliation-required;
+- **Anna — 12:** independently verified and permanently skipped;
+- **Mark — 7:** missing and only a future execution candidate after policy gates;
+- **Leo — 11:** execution outcome unknown and therefore reconciliation-required;
 - **Mission total — 30:** classified exactly once with no overlap.
 
 Open [`frontend/index.html`](frontend/index.html). It is explicitly marked `REPLAY / SANITIZED / NO LIVE TRANSACTION` and has no live wallet or provider action.
@@ -95,7 +96,7 @@ The project uses the Python standard library only.
 ```powershell
 $env:PYTHONPATH = "src"
 py -m compileall -q src tests tools
-py .\tools\check_repository_hygiene.py
+py .\tools\verify_repository_hygiene.py
 py .\tools\verify_public_evidence.py
 py -m unittest discover -s tests -p "test_*.py" -v
 ```
@@ -104,7 +105,7 @@ py -m unittest discover -s tests -p "test_*.py" -v
 
 ```bash
 PYTHONPATH=src python -m compileall -q src tests tools
-python tools/check_repository_hygiene.py
+python tools/verify_repository_hygiene.py
 python tools/verify_public_evidence.py
 PYTHONPATH=src python -m unittest discover -s tests -p 'test_*.py' -v
 ```

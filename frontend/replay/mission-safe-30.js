@@ -20,21 +20,21 @@
         effectRef: "anna",
         label: "Anna",
         recipient: "0xANNA_REDACTED",
-        amountBaseUnits: 10
+        amountBaseUnits: 12
       }),
       Object.freeze({
         effectId: "e_44aa90e97b8a20f5284b27e03dbbdb17",
         effectRef: "mark",
         label: "Mark",
         recipient: "0xMARK_REDACTED",
-        amountBaseUnits: 10
+        amountBaseUnits: 7
       }),
       Object.freeze({
         effectId: "e_b745469247aab23df29106940f1fa1a4",
         effectRef: "leo",
         label: "Leo",
         recipient: "0xLEO_REDACTED",
-        amountBaseUnits: 10
+        amountBaseUnits: 11
       })
     ]),
     steps: Object.freeze([
@@ -57,7 +57,7 @@
         missionState: "EXECUTING",
         doctorAction: "RECONCILE",
         doctorSummary: "Anna is IN_FLIGHT. The durable attempt blocks a second send until the first outcome is reconciled.",
-        amounts: Object.freeze({ skipped: 0, executable: 20, unresolved: 10 }),
+        amounts: Object.freeze({ skipped: 0, executable: 18, unresolved: 12 }),
         effects: Object.freeze({
           anna: Object.freeze({ effectState: "RESERVED", attemptState: "IN_FLIGHT", continuation: "RECONCILE_REQUIRED", doctorCode: "POSSIBLE_EXECUTION" }),
           mark: Object.freeze({ effectState: "PLANNED", attemptState: "NONE", continuation: "EXECUTE_MISSING", doctorCode: "MISSING_EFFECT" }),
@@ -70,7 +70,7 @@
         missionState: "EXECUTION_UNKNOWN",
         doctorAction: "RECONCILE",
         doctorSummary: "The client did not receive a trustworthy result. UNKNOWN is durable and never treated as permission to resend.",
-        amounts: Object.freeze({ skipped: 0, executable: 20, unresolved: 10 }),
+        amounts: Object.freeze({ skipped: 0, executable: 18, unresolved: 12 }),
         effects: Object.freeze({
           anna: Object.freeze({ effectState: "EXECUTION_UNKNOWN", attemptState: "EXECUTION_UNKNOWN", continuation: "RECONCILE_REQUIRED", doctorCode: "OUTCOME_UNKNOWN" }),
           mark: Object.freeze({ effectState: "PLANNED", attemptState: "NONE", continuation: "EXECUTE_MISSING", doctorCode: "MISSING_EFFECT" }),
@@ -83,7 +83,7 @@
         missionState: "RECONCILING",
         doctorAction: "RECONCILE",
         doctorSummary: "After restart, exact chain evidence confirms Anna. Leo remains unresolved, so the Mission stays in reconciliation.",
-        amounts: Object.freeze({ skipped: 10, executable: 10, unresolved: 10 }),
+        amounts: Object.freeze({ skipped: 12, executable: 7, unresolved: 11 }),
         effects: Object.freeze({
           anna: Object.freeze({ effectState: "CHAIN_CONFIRMED", attemptState: "VERIFIED", continuation: "SKIP_VERIFIED", doctorCode: "EXACT_TRANSFER_VERIFIED" }),
           mark: Object.freeze({ effectState: "PLANNED", attemptState: "NONE", continuation: "EXECUTE_MISSING", doctorCode: "MISSING_EFFECT" }),
@@ -96,7 +96,7 @@
         missionState: "RECONCILING",
         doctorAction: "RECONCILE",
         doctorSummary: "Anna is permanently skipped. Mark is the only missing candidate. Leo must be reconciled before any final completion claim.",
-        amounts: Object.freeze({ skipped: 10, executable: 10, unresolved: 10 }),
+        amounts: Object.freeze({ skipped: 12, executable: 7, unresolved: 11 }),
         effects: Object.freeze({
           anna: Object.freeze({ effectState: "CHAIN_CONFIRMED", attemptState: "VERIFIED", continuation: "SKIP_VERIFIED", doctorCode: "ALREADY_PAID" }),
           mark: Object.freeze({ effectState: "PLANNED", attemptState: "NONE", continuation: "EXECUTE_MISSING", doctorCode: "MISSING_EFFECT" }),
@@ -111,7 +111,7 @@
         kind: "SANITIZED_CHAIN_EVENT",
         status: "VERIFIED",
         summary: "Exact chain, token, sender, recipient and integer amount matched at the configured confirmation threshold.",
-        fingerprint: "sha256:7dd6d8ef66713de4574624c880b93484de76a64e87bf121e35318979454cd012"
+        fingerprint: "sha256:1d76881683e061c17c0944932712b0cbbc69bdc2fa221be187812a4cbae3cdb0"
       }),
       Object.freeze({
         evidenceRef: "ev_leo_unknown_outcome",
@@ -119,10 +119,10 @@
         kind: "SANITIZED_RECOVERY_OBSERVATION",
         status: "UNRESOLVED",
         summary: "A durable attempt exists, but the curated observation does not prove success or final rejection. Blind retry remains blocked.",
-        fingerprint: "sha256:27d5f7cfa35c0ac39d40a113f7c0ebc9ae5cfe51029b743126494f999ce4612d"
+        fingerprint: "sha256:d4e8ab9a3f2b4c5d6627677caf877fdedd42ea26e193a704f696fd1fc63ceaf6"
       })
     ]),
-    manifestSha256: "sha256:2bb9ab354034f7564786565513786bd5f489825108232a5172a71a240ed30e3f"
+    manifestSha256: "sha256:e19c57a533bc0d56f8c0a1c244b71525d87d6da6b8f3acaa010e96730b80fc00"
   });
 
   Object.defineProperty(global, "NEXUS_REPLAY_MANIFEST", {
