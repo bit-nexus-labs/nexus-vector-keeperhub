@@ -13,9 +13,11 @@ from nexus_vector.domain.execution_attempts import ExecutionAttemptRecord
 from nexus_vector.domain.provider_execution_references import (
     ProviderExecutionReference,
     ProviderExecutionReferenceError,
+    normalize_provider_namespace,
 )
 from nexus_vector.persistence.sqlite_provider_execution_reference_store import (
     SQLiteProviderExecutionReferenceStore,
+    SQLiteProviderExecutionReferenceStoreError,
 )
 
 
@@ -62,17 +64,24 @@ class ProviderReferencePersistingPort:
             _fail("INVALID_PROVIDER_PORT")
         if not isinstance(reference_store, SQLiteProviderExecutionReferenceStore):
             _fail("INVALID_REFERENCE_STORE")
-        if not isinstance(provider_namespace, str) or not provider_namespace:
-            _fail("INVALID_PROVIDER_NAMESPACE")
+        try:
+            canonical_namespace = normalize_provider_namespace(provider_namespace)
+        except ProviderExecutionReferenceError as error:
+            raise ProviderReferencePortError(error.code) from None
         self._provider_port = provider_port
         self._reference_store = reference_store
-        self._provider_namespace = provider_namespace
+        self._provider_namespace = canonical_namespace
 
     def execute(self, attempt: ExecutionAttemptRecord) -> ExecutionPortResult:
         if not isinstance(attempt, ExecutionAttemptRecord):
             _fail("INVALID_EXECUTION_ATTEMPT")
         if attempt.plan.provider_namespace != self._provider_namespace:
             _fail("PROVIDER_NAMESPACE_MISMATCH")
+
+        try:
+            self._reference_store.initialize()
+        except SQLiteProviderExecutionReferenceStoreError as error:
+            raise ProviderReferencePortError(error.code) from None
 
         result = self._provider_port.execute(attempt)
         if not isinstance(result, ProviderExecutionResult):
@@ -94,6 +103,5 @@ class ProviderReferencePersistingPort:
         except ProviderExecutionReferenceError as error:
             raise ProviderReferencePortError(error.code) from None
 
-        self._reference_store.initialize()
         self._reference_store.create(reference)
         return ExecutionPortResult(ExecutionPortOutcome.ACCEPTED)
