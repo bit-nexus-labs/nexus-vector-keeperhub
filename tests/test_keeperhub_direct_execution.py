@@ -305,7 +305,8 @@ class KeeperHubDirectExecutionTests(unittest.TestCase):
                 durable.record.state,
                 ExecutionAttemptState.EXECUTION_UNKNOWN,
             )
-            self.assertFalse((Path(directory) / "provider-refs.sqlite3").exists())
+            self.assertTrue((Path(directory) / "provider-refs.sqlite3").exists())
+            self.assertIsNone(reference_store.get(make_plan().attempt_id))
 
     def test_invalid_execution_id_is_unknown_and_never_acknowledged(self) -> None:
         transport = ScriptedTransport(
