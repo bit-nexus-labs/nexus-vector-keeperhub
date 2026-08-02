@@ -1,62 +1,104 @@
-# High-Level Architecture
+# Architecture
 
-PRODUCT-P01 establishes only the pure Mission Identity foundation. The rest of
-this document defines intended boundaries, not implemented capabilities.
+Nexus Vector separates durable business intent, external execution, and independent verification. KeeperHub is an execution provider boundary; it is not the authority for Mission identity, retry permission, or proof that the intended recipient was paid.
 
-## Directional boundaries
+## Layers
 
 ```text
-Mission Core -> provider-neutral execution port -> KeeperHub adapter
-KeeperHub observation -> adapter classification -> Mission Core reconciliation
+┌─────────────────────────────────────────────────────────────┐
+│ Presentation                                                │
+│ Static replay UI · strict JSON CLI · sanitized evidence     │
+├─────────────────────────────────────────────────────────────┤
+│ Application                                                 │
+│ Admission · Dispatch · Reconciliation · Continuation · Doctor│
+├─────────────────────────────────────────────────────────────┤
+│ Domain                                                      │
+│ Mission identity · effects · attempts · transition rules    │
+├─────────────────────────────────────────────────────────────┤
+│ Persistence                                                 │
+│ SQLite Mission store · SQLite execution-attempt journal     │
+├─────────────────────────────────────────────────────────────┤
+│ External ports — not implemented in this repository         │
+│ KeeperHub execution adapter · read-only chain verifier      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Mission Core is the authority for business-level safety. It will own:
+## Mission authority
 
-- durable Mission and effect identity;
-- Mission state rules and allowed transitions;
-- persistence policy and atomicity boundaries;
-- restart recovery;
-- business-level deduplication;
-- retention and tombstone policy;
-- reconciliation policy;
-- independent verification decisions.
+A Mission is the durable business-level instruction. Its canonical key is derived independently of provider request keys. Every requested economic effect receives one deterministic `effect_id` from immutable economic material.
 
-The KeeperHub adapter will own only translation between provider-neutral
-requests or observations and KeeperHub-specific representations. It must not
-become the authority for Mission identity, state, retry permission, or payment
-proof.
+Changed content under the same Mission identity is a conflict, not an update. Identical admission is idempotent and does not recreate rows or churn revisions.
 
-## Evidence and retry rules
+## Persistence boundaries
 
-Adapter or provider success alone is not proof that the intended recipient was
-paid. Mission Core must make independent verification decisions from evidence
-appropriate to the future execution design.
+### Mission store
 
-An unknown provider outcome never authorizes automatic retry. Future retry
-decisions must fail closed until reconciliation determines whether a prior
-effect may already have occurred.
+The Mission and all canonical effects are created atomically in SQLite before admission returns. Admission advances only through revision-CAS transitions:
 
-## Implemented in PRODUCT-P01
+```text
+RECEIVED → VALIDATED → PERSISTED
+```
 
-The repository currently contains only deterministic, versioned Mission and
-effect identity derivation plus conflict classification. This code is pure,
-provider-neutral, standard-library-only, and performs no I/O or external
-action.
+A restart can resume from `RECEIVED` or `VALIDATED`. A persisted or later Mission never regresses.
 
-## Planned, not implemented
+### Execution-attempt journal
 
-The following are explicitly deferred:
+Each `effect_id` has one canonical attempt identity. Dispatch persists:
 
-- MissionRequest and other application-facing contracts;
-- the Mission state machine;
-- durable persistence and transaction boundaries;
-- restart recovery;
-- retention and tombstones;
-- provider-neutral execution ports;
-- the KeeperHub adapter;
-- observation classification and reconciliation;
-- independent onchain verification;
-- execution orchestration and user interfaces.
+```text
+PREPARED → IN_FLIGHT
+```
 
-No element of PRODUCT-P01 executes, simulates, signs, broadcasts, or verifies a
-payment, and no product-readiness claim follows from this bootstrap.
+before invoking the provider-neutral execution port. A second dispatcher cannot obtain another writer claim. The claim does not expire automatically; a stuck or unknown attempt goes to reconciliation instead of timeout-based resend.
+
+Mission and attempt stores are deliberately separate in the hackathon MVP. That reduces migration risk to the stable Mission store. Cross-store recovery is therefore explicit rather than pretending to provide one distributed transaction.
+
+## Crash ordering
+
+When exact independent evidence proves an effect occurred:
+
+1. project `CHAIN_CONFIRMED` into the durable Mission/effect store;
+2. then mark the execution attempt `VERIFIED`.
+
+A crash between those writes leaves the economic fact confirmed while the attempt remains a recovery candidate. Restart may repeat read-only verification, but it cannot repeat the payment.
+
+## Unknown outcomes
+
+Timeouts, lost responses, malformed results, forged outcomes, verifier errors, insufficient confirmations, and unresolved observations fail closed.
+
+```text
+possible execution + no exact proof
+    → EXECUTION_UNKNOWN
+    → RECONCILE_REQUIRED
+    → never blind resend
+```
+
+Only a future adapter that can prove rejection before any economic effect may return a final rejection.
+
+## Continuation planning
+
+For each canonical effect, the planner chooses exactly one class:
+
+- `SKIP_VERIFIED` — independently confirmed and never resend;
+- `EXECUTE_MISSING` — strictly planned with no possible prior economic effect;
+- `RECONCILE_REQUIRED` — in-flight, acknowledged, submitted, or unknown;
+- `MANUAL_REVIEW` — contradiction, terminal failure, or invalid durable relationship.
+
+The four amount partitions must sum exactly to the immutable Mission total.
+
+## Execution Doctor
+
+The Doctor is a read-only policy engine over the continuation plan plus explicit sanitized provider/chain observations. It returns per-effect diagnosis codes and one conservative overall next action. It cannot mutate product state or call an external service.
+
+## External integration boundary
+
+A future KeeperHub adapter may translate provider-neutral execution attempts into documented KeeperHub requests and observations. It must not:
+
+- derive or replace Mission/effect identity;
+- decide that ambiguity means failure;
+- authorize a new attempt for an unknown effect;
+- treat provider acceptance as recipient-payment proof;
+- bypass independent event verification;
+- access mainnet under the current project policy.
+
+Authenticated wallet readiness, a controlled testnet transaction, and public explorer evidence remain pending runtime gates.
