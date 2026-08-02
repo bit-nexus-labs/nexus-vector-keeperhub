@@ -91,7 +91,7 @@ Immediately after HTTP `202 Accepted`:
 
 ## Stop conditions
 
-Stop with no blind retry when any of these occurs:
+Stop with no retry and no blind retry when any of these occurs:
 
 - authentication or wallet readiness is not exact;
 - wallet or token balance is insufficient or not reliably known;
