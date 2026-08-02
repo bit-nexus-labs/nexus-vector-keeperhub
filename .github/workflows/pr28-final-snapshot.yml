@@ -1,0 +1,34 @@
+name: Temporary PR28 final snapshot
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/pr28-final-snapshot.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    name: Package PR28 reviewed surfaces
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Upload reviewed UI surfaces
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr28-reviewed-ui-surfaces
+          path: |
+            frontend
+            docs/MISSION_CONTROL_UI_REVIEW.md
+            tests/test_mission_control_ui.py
+            evidence/public_manifest.json
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: true
