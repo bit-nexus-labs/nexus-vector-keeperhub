@@ -12,6 +12,7 @@ from nexus_vector.application.execution_dispatch import ExecutionPortOutcome
 from nexus_vector.application.provider_reference_port import ProviderExecutionResult
 from nexus_vector.domain.execution_attempts import (
     ExecutionAttemptRecord,
+    ExecutionAttemptState,
     derive_request_fingerprint,
 )
 
@@ -197,6 +198,8 @@ class KeeperHubDirectExecutionPort:
     def execute(self, attempt: ExecutionAttemptRecord) -> ProviderExecutionResult:
         if not isinstance(attempt, ExecutionAttemptRecord):
             _fail("INVALID_EXECUTION_ATTEMPT")
+        if attempt.state is not ExecutionAttemptState.IN_FLIGHT:
+            _fail("ATTEMPT_NOT_IN_FLIGHT")
         if attempt.plan.provider_namespace != KEEPERHUB_PROVIDER_NAMESPACE:
             _fail("PROVIDER_NAMESPACE_MISMATCH")
         expected_fingerprint = derive_request_fingerprint(
