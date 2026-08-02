@@ -22,6 +22,9 @@ _ETHEREUM_SEPOLIA_CHAIN_ID = 11155111
 _ALLOWED_TESTNET_CHAIN_IDS = frozenset(
     {_BASE_SEPOLIA_CHAIN_ID, _ETHEREUM_SEPOLIA_CHAIN_ID}
 )
+_OFFICIAL_EXECUTION_STATUSES = frozenset(
+    {"pending", "running", "completed", "failed"}
+)
 _EVM_ADDRESS_PATTERN = re.compile(r"0x[0-9a-fA-F]{40}")
 _MAX_PROVIDER_REFERENCE_LENGTH = 256
 
@@ -232,11 +235,16 @@ class KeeperHubDirectExecutionPort:
             _fail("INVALID_SIMULATION_RESPONSE")
         if response.status_code in {401, 403, 422}:
             return ProviderExecutionResult(ExecutionPortOutcome.REJECTED_FINAL)
-        if response.status_code != 200:
-            _fail("SIMULATION_OUTCOME_UNKNOWN")
+
         success = response.body.get("success")
         status = response.body.get("status")
         would_revert = response.body.get("wouldRevert")
+        if response.status_code == 400:
+            if success is False and status == "simulated" and would_revert is True:
+                return ProviderExecutionResult(ExecutionPortOutcome.REJECTED_FINAL)
+            _fail("INVALID_SIMULATION_REJECTION")
+        if response.status_code != 200:
+            _fail("SIMULATION_OUTCOME_UNKNOWN")
         if type(success) is not bool or type(would_revert) is not bool:
             _fail("INVALID_SIMULATION_RESPONSE")
         if not success or would_revert:
@@ -265,7 +273,7 @@ class KeeperHubDirectExecutionPort:
             or any(ord(character) < 32 or ord(character) == 127 for character in execution_id)
         ):
             _fail("INVALID_EXECUTION_ID")
-        if status not in {"pending", "running"}:
+        if status not in _OFFICIAL_EXECUTION_STATUSES:
             _fail("INVALID_BROADCAST_STATUS")
         return ProviderExecutionResult(
             ExecutionPortOutcome.ACCEPTED,
