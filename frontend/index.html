@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Nexus Vector mission-safe payment recovery replay.">
+  <title>Nexus Vector — Mission-Safe Agent Payments</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Nexus Vector home">
+      <span class="brand-mark" aria-hidden="true">NV</span>
+      <span><strong>Nexus Vector</strong><small>Mission-Safe Agent Payments</small></span>
+    </a>
+    <div class="mode-badge"><span class="pulse"></span> REPLAY · SANITIZED</div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">KeeperHub hackathon · deterministic recovery layer</p>
+        <h1>The agent can retry.<br><span>The money cannot duplicate.</span></h1>
+        <p class="hero-copy">A durable Mission, one canonical attempt per effect, independent verification, and a deterministic Doctor that never turns uncertainty into permission to pay again.</p>
+      </div>
+      <aside class="safety-card" aria-label="Replay safety boundary">
+        <p class="safety-kicker">Public demo boundary</p>
+        <strong>NO LIVE TRANSACTION</strong>
+        <p>This interface uses curated, sanitized replay data. It has no wallet, API, RPC, signing, or broadcast capability.</p>
+      </aside>
+    </section>
+
+    <nav class="view-tabs" aria-label="Demo views">
+      <button class="tab is-active" data-view="simple" aria-selected="true">Simple</button>
+      <button class="tab" data-view="technical" aria-selected="false">Technical</button>
+      <button class="tab" data-view="evidence" aria-selected="false">Evidence</button>
+    </nav>
+
+    <section class="replay-control" aria-labelledby="replay-heading">
+      <div>
+        <p class="section-label">Curated 10 + 10 + 10 replay</p>
+        <h2 id="replay-heading">Failure, restart, safe continuation</h2>
+      </div>
+      <div class="step-controls">
+        <button id="previous-step" class="icon-button" aria-label="Previous replay step">←</button>
+        <span id="step-counter" aria-live="polite"></span>
+        <button id="next-step" class="icon-button" aria-label="Next replay step">→</button>
+      </div>
+      <div class="timeline" id="timeline" aria-label="Replay timeline"></div>
+    </section>
+
+    <section id="view-simple" class="view-panel is-active">
+      <div class="mission-summary">
+        <article class="metric-card">
+          <span>Total Mission</span><strong id="mission-total">30</strong><small>immutable base units</small>
+        </article>
+        <article class="metric-card safe">
+          <span>Already verified</span><strong id="amount-skipped">10</strong><small>skip forever</small>
+        </article>
+        <article class="metric-card ready">
+          <span>Missing</span><strong id="amount-executable">10</strong><small>eligible only after policy gates</small>
+        </article>
+        <article class="metric-card warning">
+          <span>Unknown</span><strong id="amount-unresolved">10</strong><small>reconcile, never blind retry</small>
+        </article>
+      </div>
+
+      <div class="doctor-banner">
+        <div>
+          <p class="section-label">Execution Doctor</p>
+          <h2 id="doctor-title">Safe next action: RECONCILE</h2>
+          <p id="doctor-summary"></p>
+        </div>
+        <span id="doctor-action" class="action-pill">RECONCILE</span>
+      </div>
+
+      <div id="effect-cards" class="effect-grid" aria-label="Effect decisions"></div>
+    </section>
+
+    <section id="view-technical" class="view-panel">
+      <div class="technical-grid">
+        <article class="panel">
+          <p class="section-label">Mission state machine</p>
+          <h2 id="technical-mission-state">RECONCILING</h2>
+          <div class="state-track" aria-label="Mission state progression">
+            <span data-state="RECEIVED">RECEIVED</span><span data-state="VALIDATED">VALIDATED</span><span data-state="PERSISTED">PERSISTED</span><span data-state="RECONCILING">RECONCILING</span><span data-state="READY_FOR_EXECUTION">READY</span><span data-state="COMPLETED">COMPLETED</span>
+          </div>
+        </article>
+        <article class="panel">
+          <p class="section-label">Safety invariants</p>
+          <ul class="invariant-list">
+            <li>One canonical <code>effect_id</code> per economic effect</li>
+            <li><code>IN_FLIGHT</code> is durable before any port call</li>
+            <li><code>EXECUTION_UNKNOWN</code> never authorizes resend</li>
+            <li>Chain evidence is projected before attempt <code>VERIFIED</code></li>
+            <li>Partition total must equal immutable Mission total</li>
+          </ul>
+        </article>
+      </div>
+      <div class="panel table-panel">
+        <div class="panel-heading">
+          <div><p class="section-label">Durable state comparison</p><h2>Local · Attempt · Policy</h2></div>
+          <span class="read-only">READ ONLY</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Effect</th><th>Amount</th><th>Effect state</th><th>Attempt state</th><th>Continuation</th><th>Doctor code</th></tr></thead>
+            <tbody id="technical-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-evidence" class="view-panel">
+      <div class="evidence-layout">
+        <article class="panel evidence-manifest">
+          <p class="section-label">Sanitized verification manifest</p>
+          <h2>Reviewable without secrets</h2>
+          <dl>
+            <div><dt>Mode</dt><dd id="manifest-mode">REPLAY</dd></div>
+            <div><dt>Schema</dt><dd id="manifest-schema"></dd></div>
+            <div><dt>Manifest SHA-256</dt><dd><code id="manifest-hash"></code></dd></div>
+            <div><dt>External actions</dt><dd>None</dd></div>
+          </dl>
+          <p class="notice">This digest identifies the curated replay manifest. It is not a transaction hash and is not proof that funds moved.</p>
+        </article>
+        <div id="evidence-list" class="evidence-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Nexus Vector · curated replay artifact</p>
+    <p>REPLAY / SANITIZED / NO LIVE TRANSACTION</p>
+  </footer>
+
+  <script src="replay/mission-safe-30.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
