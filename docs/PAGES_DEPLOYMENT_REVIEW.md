@@ -4,7 +4,7 @@
 
 Prepared as a replacement draft pull request from current product main `865fa04e1b6d670556a945662c2494fc9da9c178`. No deployment occurs from the pull-request branch.
 
-The previous PR #21 is superseded because its validation step referenced the obsolete `tools/verify_repository_hygiene.py` path. The current repository uses `tools/check_repository_hygiene.py`.
+The previous PR #21 is superseded because it was prepared from old main ancestry before the provider integration, runtime-readiness, and evidence updates were merged. Its workflow used the correct hygiene verifier, but its branch and review record no longer represented current product main. The replacement keeps the canonical path `tools/verify_repository_hygiene.py` and adds a regression test that requires every referenced validation file to exist.
 
 ## Source artifact
 
@@ -24,9 +24,10 @@ The interface remains `REPLAY / SANITIZED / NO LIVE TRANSACTION`.
 ## Validation before upload
 
 - compile validation for frontend-related tests and tools;
-- current tracked-repository hygiene verifier;
+- canonical tracked-repository hygiene verifier;
 - public evidence verifier and artifact hashes;
 - focused static replay UI tests;
+- Pages workflow path and deployment-boundary regression tests;
 - Python 3.14 on `ubuntu-24.04`;
 - exact-SHA-pinned GitHub-owned actions;
 - checkout credentials are not persisted.
@@ -63,7 +64,7 @@ The workflow contains no KeeperHub, wallet, RPC, signing, transaction, secret, o
 
 Before merge:
 
-1. draft PR CI and Pages validation are green;
+1. draft PR normal CI and Pages validation are green;
 2. exact workflow/diff review passes;
 3. the branch is based on current main or revalidated after any relevant frontend/evidence change;
 4. repository Pages settings are confirmed to use **GitHub Actions** as the publishing source;
