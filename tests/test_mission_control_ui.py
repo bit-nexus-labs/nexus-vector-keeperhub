@@ -106,6 +106,8 @@ class MissionControlUITests(unittest.TestCase):
         self.assertIn(".treasury-gate", self.css)
         self.assertIn("prefers-reduced-motion", self.css)
         self.assertIn("@media (max-width: 620px)", self.css)
+        self.assertIn('matchMedia("(prefers-reduced-motion: reduce)")', self.app)
+        self.assertIn('behavior: prefersReducedMotion ? "auto" : "smooth"', self.app)
 
     def test_only_curated_incident_presets_are_exposed(self) -> None:
         self.assertNotRegex(self.index, r'type="range"')
