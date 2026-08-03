@@ -20,6 +20,7 @@ from nexus_vector.domain.execution_attempts import (
     ExecutionAttemptPlan,
     ExecutionAttemptRecord,
     ExecutionAttemptState,
+    create_initial_execution_attempt,
     derive_request_fingerprint,
 )
 from nexus_vector.integrations.keeperhub_direct_execution import (
@@ -27,6 +28,10 @@ from nexus_vector.integrations.keeperhub_direct_execution import (
     KeeperHubDirectExecutionPort,
     KeeperHubTransferIntent,
     KeeperHubTransferTransport,
+)
+from nexus_vector.persistence.sqlite_execution_attempt_store import (
+    SQLiteExecutionAttemptStore,
+    SQLiteExecutionAttemptStoreError,
 )
 from nexus_vector.persistence.sqlite_keeperhub_authorization_ledger import (
     KeeperHubAuthorizationPhase,
@@ -119,6 +124,13 @@ def _ledger_call(operation: Callable[[], _T]) -> _T:
     try:
         return operation()
     except SQLiteKeeperHubAuthorizationLedgerError as error:
+        raise KeeperHubControlledExecutionError(error.code) from None
+
+
+def _attempt_store_call(operation: Callable[[], _T]) -> _T:
+    try:
+        return operation()
+    except SQLiteExecutionAttemptStoreError as error:
         raise KeeperHubControlledExecutionError(error.code) from None
 
 
@@ -352,12 +364,15 @@ class KeeperHubControlledSimulationService:
         self,
         transport: KeeperHubTransferTransport,
         intent: KeeperHubTransferIntent,
+        attempt_store: SQLiteExecutionAttemptStore,
         authorization_ledger: SQLiteKeeperHubAuthorizationLedger,
     ) -> None:
         if not callable(getattr(transport, "post_transfer", None)):
             _fail("INVALID_KEEPERHUB_TRANSPORT")
         if not isinstance(intent, KeeperHubTransferIntent):
             _fail("INVALID_TRANSFER_INTENT")
+        if not isinstance(attempt_store, SQLiteExecutionAttemptStore):
+            _fail("INVALID_ATTEMPT_STORE")
         if not isinstance(
             authorization_ledger,
             SQLiteKeeperHubAuthorizationLedger,
@@ -365,6 +380,7 @@ class KeeperHubControlledSimulationService:
             _fail("INVALID_AUTHORIZATION_LEDGER")
         self._transport = transport
         self._intent = intent
+        self._attempt_store = attempt_store
         self._ledger = authorization_ledger
 
     def simulate(
@@ -388,6 +404,15 @@ class KeeperHubControlledSimulationService:
             <= authorization.expires_at_utc
         ):
             _fail("SIMULATION_AUTHORIZATION_EXPIRED")
+
+        _attempt_store_call(self._attempt_store.initialize)
+        prepared = _attempt_store_call(
+            lambda: self._attempt_store.create(
+                create_initial_execution_attempt(plan, observed)
+            )
+        )
+        if prepared.record.state is not ExecutionAttemptState.PREPARED:
+            _fail("RECONCILIATION_REQUIRED")
 
         body_fingerprint = _body_fingerprint(self._intent.simulation_body)
         _ledger_call(self._ledger.initialize)
