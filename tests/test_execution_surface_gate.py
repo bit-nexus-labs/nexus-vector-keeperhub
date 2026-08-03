@@ -15,6 +15,10 @@ from nexus_vector.application.execution_surface_gate import (
     ExecutionSurfaceGateError,
     SurfaceBoundExecutionPort,
 )
+from nexus_vector.application.provider_reference_port import (
+    ProviderExecutionResult,
+    ProviderReferencePersistingPort,
+)
 from nexus_vector.domain.execution_attempts import (
     ExecutionAttemptState,
     build_execution_attempt_plan,
@@ -25,10 +29,14 @@ from nexus_vector.domain.execution_surfaces import ExecutionSurface
 from nexus_vector.persistence.sqlite_execution_surface_binding_store import (
     SQLiteExecutionSurfaceBindingStore,
 )
+from nexus_vector.persistence.sqlite_provider_execution_reference_store import (
+    SQLiteProviderExecutionReferenceStore,
+)
 
 T0 = datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)
 MISSION_KEY = "msn_" + "11" * 32
 EFFECT_ID = "eff_" + "22" * 32
+PROVIDER_NAMESPACE = "keeperhub-direct-execution"
 
 
 class CountingPort:
@@ -40,6 +48,18 @@ class CountingPort:
         with self.lock:
             self.calls.append(attempt)
         return ExecutionPortResult(ExecutionPortOutcome.ACCEPTED)
+
+
+class ProviderPort:
+    def __init__(self):
+        self.calls = []
+
+    def execute(self, attempt):
+        self.calls.append(attempt)
+        return ProviderExecutionResult(
+            ExecutionPortOutcome.ACCEPTED,
+            "keeperhub-execution-surface-001",
+        )
 
 
 class RaisingPort:
@@ -55,7 +75,7 @@ def in_flight_attempt():
     plan = build_execution_attempt_plan(
         mission_key=MISSION_KEY,
         effect_id=EFFECT_ID,
-        provider_namespace="keeperhub-direct-execution",
+        provider_namespace=PROVIDER_NAMESPACE,
         request_key="surface-gate-request-key",
         request_material={"amount": 7},
     )
@@ -70,7 +90,8 @@ def in_flight_attempt():
 class ExecutionSurfaceGateTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
-        self.path = Path(self.temporary.name) / "surface.sqlite3"
+        self.root = Path(self.temporary.name)
+        self.path = self.root / "surface.sqlite3"
         self.store = SQLiteExecutionSurfaceBindingStore(self.path)
 
     def tearDown(self):
@@ -102,6 +123,34 @@ class ExecutionSurfaceGateTests(unittest.TestCase):
         stored = self.store.get(EFFECT_ID)
         self.assertEqual(stored.mission_key, MISSION_KEY)
         self.assertEqual(stored.surface, ExecutionSurface.DIRECT_EXECUTION)
+
+    def test_provider_result_passes_through_to_reference_persistence(self):
+        provider = ProviderPort()
+        surface_bound = self.gate(
+            provider,
+            ExecutionSurface.DIRECT_EXECUTION,
+            "direct-binding-001",
+        )
+        references = SQLiteProviderExecutionReferenceStore(
+            self.root / "references.sqlite3"
+        )
+        wrapped = ProviderReferencePersistingPort(
+            surface_bound,
+            references,
+            provider_namespace=PROVIDER_NAMESPACE,
+        )
+        attempt = in_flight_attempt()
+        result = wrapped.execute(attempt)
+        self.assertEqual(result.outcome, ExecutionPortOutcome.ACCEPTED)
+        self.assertEqual(provider.calls, [attempt])
+        self.assertEqual(
+            references.get(attempt.attempt_id).provider_reference,
+            "keeperhub-execution-surface-001",
+        )
+        self.assertEqual(
+            self.store.get(EFFECT_ID).surface,
+            ExecutionSurface.DIRECT_EXECUTION,
+        )
 
     def test_different_surface_after_restart_blocks_before_delegate(self):
         attempt = in_flight_attempt()
