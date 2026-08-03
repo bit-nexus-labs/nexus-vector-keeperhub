@@ -1,7 +1,7 @@
 {
   "schema": "nexus-vector.public-evidence.v1",
   "classification": "SANITIZED_PUBLIC",
-  "generated_at_utc": "2026-08-02T22:05:00Z",
+  "generated_at_utc": "2026-08-03T00:56:15Z",
   "project": {
     "name": "Nexus Vector — Mission-Safe Agent Payments",
     "promise": "The agent can retry. The money cannot duplicate.",
@@ -49,7 +49,7 @@
       "claim_id": "static_replay_ui",
       "status": "OFFLINE_VERIFIED",
       "merge_commit": "d10eb0e3b9fb6decb1ea2072e34b577dd52691b4",
-      "evidence": "Dependency-free Mission, Treasury Gate and Evidence views render curated replay data only; exact current bytes are bound by the artifact digests below."
+      "evidence": "Dependency-free Mission Resilience Lab, Treasury Gate and Evidence views render deterministic local classifications only; exact current bytes are bound by the artifact digests below."
     },
     {
       "claim_id": "keeperhub_contract_review",
@@ -97,19 +97,19 @@
   "artifacts": [
     {
       "path": "frontend/index.html",
-      "sha256": "14827a14c07b9d0fe7a8b10d2003e49cf8aabdaa019f91207251ddd75743bbcc",
+      "sha256": "fc7080124f0f828463886d27f066dcb5965d7350c695acb81ca461117a6c0a60",
       "classification": "PUBLIC_STATIC_UI",
       "is_transaction_evidence": false
     },
     {
       "path": "frontend/styles.css",
-      "sha256": "5413c783eb84b55412e76ff066835ef01dcf4e5926a5f2b6a00b66664c40542d",
+      "sha256": "01166587fa27b2b2cd7a04789f02cfccb9f47834d17c3b62988155acb5c5972d",
       "classification": "PUBLIC_STATIC_UI",
       "is_transaction_evidence": false
     },
     {
       "path": "frontend/app.js",
-      "sha256": "dcbdd6d6c8fa7664f5a815a0d04ce1790b5f56a33dbac18f6fced2d5c25feeb9",
+      "sha256": "7346d400f8bd832592f88f11d2cdb5fe363b583969a5c7702e44cb87e0fcf117",
       "classification": "PUBLIC_STATIC_UI",
       "is_transaction_evidence": false
     },

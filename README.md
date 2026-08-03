@@ -4,15 +4,21 @@
 
 Nexus Vector is a safety and recovery layer for agent-initiated payments. It gives each business Mission and economic effect durable identity, persists execution intent before a provider call, treats ambiguous outcomes as unknown, reconciles from independent evidence, and continues only work that is still missing.
 
-The repository now contains a tested offline product core **and a bounded KeeperHub Direct Execution integration path**. It still does **not** claim that a real KeeperHub testnet transaction has already been completed.
+The repository contains a tested offline product core, an interactive **Mission Resilience Lab**, and a bounded KeeperHub Direct Execution integration path. It still does **not** claim that a real KeeperHub testnet transaction has already been completed.
+
+Public product:
+
+```text
+https://bit-nexus-labs.github.io/nexus-vector-keeperhub/
+```
 
 ## Why it exists
 
-Provider idempotency protects one request key. A business Mission can outlive a process, use a new request key, contain several recipients, or lose a response after an economic effect may already have occurred. Nexus Vector keeps durable business intent above request-level details.
+Provider idempotency protects one request key. A business Mission can outlive a process, contain multiple recipients, lose a response after an economic effect may already have occurred, or be submitted concurrently by more than one worker. Nexus Vector keeps durable business intent above request-level details.
 
 ```text
 Business Mission
-  → canonical effects
+  → 1..N canonical effects
   → durable execution attempts
   → simulation-first KeeperHub adapter
   → durable provider execution reference
@@ -36,7 +42,7 @@ Business Mission
 - ambiguous, malformed, timed-out, or forged outcomes classified as `EXECUTION_UNKNOWN`;
 - single-writer concurrency through non-expiring revision-CAS claims;
 - restart and lost-response reconciliation without blind resend;
-- deterministic unequal-amount 12 + 7 + 11 continuation planning;
+- deterministic partial continuation across unequal amounts;
 - read-only Execution Doctor service and strict sanitized JSON CLI.
 
 ### KeeperHub integration boundary
@@ -48,19 +54,32 @@ Business Mission
 - append-only SQLite provider-reference journal;
 - provider-reference schema and existing-reference guard checked before the provider call;
 - provider `executionId` persisted before `PROVIDER_ACKNOWLEDGED`;
-- crash-safe recovery when the reference is durable but ACK is incomplete;
+- crash-safe recovery when the reference is durable but acknowledgement is incomplete;
 - read-only provider status parsing with `X-Poll-Interval-Hint` enforcement;
 - provider `completed` remains separate from independent chain verification;
 - no-retry/no-redirect standard-library HTTPS transport pinned to the official KeeperHub API;
 - strict wallet-readiness and enabled-testnet chain catalog parsers;
-- explicit credential injection with no environment, keyring, or local credential lookup.
+- explicit credential injection with no browser, environment, keyring, or automatic credential lookup.
 
-### Presentation and evidence
+### Mission Resilience Lab
 
-- dependency-free Mission, Treasury Gate, and Evidence replay views;
-- sanitized public evidence manifest with artifact hashes and tamper tests;
-- demo video script, submission draft, testnet runbook, office-hours questions, and freeze checklist;
-- repository-wide compile, hygiene, evidence, and standard-library tests on Python 3.12 and 3.14.
+The dependency-free public product provides a local, non-executing resilience sandbox:
+
+- dynamic Mission Builder with **1–10 independent effects**;
+- single-effect, unequal-recovery, four-way batch, and five-way batch presets;
+- editable recipient aliases and integer demo-unit amounts before Mission persistence;
+- deterministic local sandbox checksum and budget-partition checks after persistence;
+- controlled lost-response, duplicate-submit, process-restart, payload-mutation, and retry-all scenarios;
+- per-effect `SKIP_VERIFIED`, `EXECUTE_MISSING`, `RECONCILE_REQUIRED`, and `MANUAL_REVIEW` decisions;
+- safe-versus-counterfactual treasury comparison;
+- Execution Black Box with process epoch and deterministic recovery events;
+- Treasury Gate, Mission state-machine, and sanitized Evidence views;
+- an explicit `PENDING_RUNTIME` boundary for future verified testnet evidence;
+- responsive and reduced-motion behavior without external runtime dependencies.
+
+The sandbox checksum is a compact local UI consistency marker, not the canonical cryptographic Mission identity used by the runtime core.
+
+The browser contains no KeeperHub credential, wallet capability, signing path, network transport, transaction broadcast, or hidden storage. All sandbox outcomes are deterministic local classifications.
 
 ## Safety invariants
 
@@ -74,18 +93,19 @@ Business Mission
 8. Provider completion is not recipient-payment proof; independent chain evidence remains mandatory.
 9. A confirmed effect is skipped permanently.
 10. Every effect is classified exactly once and all partitions equal the immutable Mission total.
-11. Mainnet is blocked by project policy.
+11. Changed recipient, token, amount, or Mission context requires a new canonical identity.
+12. Mainnet is blocked by project policy.
 
-## 12 + 7 + 11 replay
+## Reference scenario: 12 + 7 + 11
 
-The curated replay demonstrates:
+The original unequal-amount scenario remains available as one Mission Builder preset:
 
 - **Anna — 12:** independently verified and permanently skipped;
 - **Mark — 7:** missing and only a future execution candidate after policy gates;
 - **Leo — 11:** execution outcome unknown and therefore reconciliation-required;
 - **Mission total — 30:** classified exactly once with no overlap.
 
-Open [`frontend/index.html`](frontend/index.html). It is explicitly marked `REPLAY / SANITIZED / NO LIVE TRANSACTION` and has no live wallet or provider action.
+It is one reference scenario, not a fixed product limit. The sandbox can create Missions containing from one to ten effects.
 
 ## Verify locally
 
@@ -118,22 +138,28 @@ src/nexus_vector/persistence/  SQLite Mission, attempt, and provider-reference s
 src/nexus_vector/application/  admission, dispatch, reconciliation, continuation, Doctor
 src/nexus_vector/integrations/ KeeperHub intent, status, and bounded HTTPS transport
 src/nexus_vector/cli/          strict sanitized Execution Doctor CLI
-frontend/                      dependency-free curated replay UI
-evidence/                      public manifest and evidence boundary
+frontend/                      Mission Resilience Lab and curated replay evidence
+evidence/                      public manifest and runtime-claim boundary
 tools/                         hygiene and public-evidence verifiers
-tests/                         unit, concurrency, restart, transport, and SQLite integration tests
+tests/                         unit, concurrency, restart, transport, UI, and SQLite tests
 docs/                          architecture, state machines, integration contract, and runbooks
 ```
 
 ## Current runtime boundary
 
-Code-complete offline, but still pending and intentionally not claimed:
+Already available:
+
+- deployed GitHub Pages product;
+- offline Mission, persistence, retry-suppression, restart, continuation, KeeperHub adapter, provider-reference, status-observer, transport, UI, and evidence layers;
+- deterministic interactive sandbox with no external action capability.
+
+Still pending and intentionally not claimed:
 
 - locally supplied KeeperHub organization API key;
 - authenticated wallet readiness and gas/token balance confirmation;
 - exact private action sheet: chain, token, sender, recipient, amount, request key, fee cap, and confirmation policy;
 - one separately approved controlled testnet simulation and broadcast;
 - public explorer evidence independently matched to the exact intended ERC-20 event;
-- deployed frontend URL, recorded video, and final DoraHacks submission.
+- recorded video and final submission links.
 
-No API key, wallet material, raw provider payload, real recipient data, private receipt, or unredacted provider identifier belongs in this repository. See [`docs/RUNTIME_READINESS.md`](docs/RUNTIME_READINESS.md), [`docs/TESTNET_EVIDENCE_RUNBOOK.md`](docs/TESTNET_EVIDENCE_RUNBOOK.md), and [`evidence/public_manifest.json`](evidence/public_manifest.json).
+No API key, wallet material, raw provider payload, real recipient data, private receipt, or unredacted provider identifier belongs in this repository. See [`docs/RUNTIME_READINESS.md`](docs/RUNTIME_READINESS.md), [`docs/TESTNET_EVIDENCE_RUNBOOK.md`](docs/TESTNET_EVIDENCE_RUNBOOK.md), [`docs/MISSION_RESILIENCE_LAB.md`](docs/MISSION_RESILIENCE_LAB.md), and [`evidence/public_manifest.json`](evidence/public_manifest.json).
