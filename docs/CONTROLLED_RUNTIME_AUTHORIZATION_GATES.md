@@ -4,15 +4,14 @@
 **Mainnet:** BLOCKED  
 **Live KeeperHub transaction:** NOT PERFORMED
 
-This document defines the action-specific boundary between the already tested
-Nexus Vector product core and any future KeeperHub testnet runtime.
+This document defines the action-specific boundary between the tested Nexus
+Vector product core and any future KeeperHub testnet runtime.
 
-The current combined `KeeperHubDirectExecutionPort` remains useful as an offline
-contract harness: one method validates intent, simulates, and then broadcasts.
-It must **not** be wired directly into a live operator command because a
-successful simulation would immediately continue to broadcast inside the same
-call. The controlled runtime path instead separates those actions into two
-independently authorized phases.
+The combined `KeeperHubDirectExecutionPort` remains an offline contract harness:
+one method validates intent, simulates, and then broadcasts. It must **not** be
+wired directly into a live operator command because a successful simulation
+would continue to broadcast inside the same call. The controlled runtime path
+separates those actions and makes their POST authority durable across restart.
 
 ## Required flow
 
@@ -20,14 +19,15 @@ independently authorized phases.
 durable Mission/effects/attempt plan
   → completed private action sheet
   → one simulation-specific approval
-  → KeeperHubControlledSimulationService
-  → sanitized KeeperHubSimulationReceipt
+  → durable SIMULATION claim
+  → one simulation POST
+  → durable sanitized simulation receipt
   → operator/reviewer inspects the result
   → separate broadcast-specific approval
   → exact --approve-testnet-write flag
-  → durable IN_FLIGHT claim
-  → KeeperHubApprovedBroadcastPort
-  → ProviderReferencePersistingPort
+  → durable IN_FLIGHT attempt claim
+  → durable BROADCAST claim
+  → one broadcast POST
   → durable executionId before PROVIDER_ACKNOWLEDGED
   → bounded status reads
   → independent exact ERC-20 event verification
@@ -44,35 +44,86 @@ invalid unless it is bound to the same:
 - separately recorded approval reference;
 - explicit authorization window.
 
-## One-shot budgets
+## Durable one-shot ledger
 
-Each controlled object is one-shot:
+`SQLiteKeeperHubAuthorizationLedger` is a separate fail-closed SQLite sidecar.
+It records only opaque identities, fingerprints, phase, state, and UTC
+timestamps. It contains no API key, wallet secret, raw provider payload,
+recipient address, token address, or amount.
+
+The unique business authority is:
 
 ```text
-maximum_simulation_posts_per_authorization = 1
-maximum_broadcast_posts_per_authorization = 1
-maximum_mutating_calls_per_effect = 1
-maximum_same_key_recovery_posts_after_ambiguity = 0
-maximum_new_request_keys_after_ambiguity = 0
+(phase, attempt_id)
 ```
 
-The budget is consumed **before** the injected transport is called. Timeout,
-disconnect, malformed response, classifier failure, or any other ambiguity does
-not restore the budget. Recovery proceeds through durable state, provider-status
-reads when an `executionId` exists, and independent chain observation.
+where phase is exactly:
+
+```text
+SIMULATION | BROADCAST
+```
+
+A claim is written with `BEGIN IMMEDIATE`, WAL, `synchronous = FULL`, and exact
+schema validation **before** transport access. Therefore:
+
+- a second process cannot acquire the same phase for the same effect;
+- a new approval reference cannot create another POST for that effect;
+- restart cannot reset an already consumed budget;
+- timeout or malformed response cannot restore authority;
+- concurrent workers produce one claim winner;
+- a corrupt or unexpected schema blocks the action.
+
+The ledger states are:
+
+```text
+CLAIMED
+ELIGIBLE_FOR_BROADCAST_APPROVAL
+REJECTED_FINAL
+OUTCOME_UNKNOWN
+ACCEPTED
+```
+
+`CLAIMED` itself is a safe recovery state. If the process stops after the claim
+but before a final ledger transition, the action remains consumed and must be
+reviewed or reconciled. It is never repeated automatically.
+
+The ledger is intentionally separate from the Mission, attempt, and provider
+reference stores. This avoids changing already proven schemas before the
+hackathon. The tradeoff is another SQLite file that must be backed up,
+permissioned, and recovered together with the other runtime journals.
+
+## Call budgets
+
+The durable limits are:
+
+```text
+maximum_simulation_posts_per_effect = 1
+maximum_broadcasts_per_effect = 1
+maximum_total_broadcasts_per_mission = N_approved
+maximum_mutating_calls_per_effect = 1
+maximum_new_request_keys_after_ambiguity = 0
+maximum_concurrent_mutating_effects = 1 initially
+```
+
+Same-key recovery POST after ambiguity remains forbidden until KeeperHub
+confirms an exact supported procedure and that procedure is separately
+reviewed.
 
 ## Simulation phase
 
 `KeeperHubControlledSimulationService`:
 
-1. accepts an immutable `ExecutionAttemptPlan` and `KeeperHubTransferIntent`;
-2. recomputes the request fingerprint before transport access;
+1. accepts an immutable `ExecutionAttemptPlan` and
+   `KeeperHubTransferIntent`;
+2. recomputes the durable request fingerprint before transport access;
 3. requires an exact `KeeperHubSimulationAuthorization`;
-4. performs at most one simulation POST without an idempotency key;
-5. stores no raw provider payload in its receipt;
-6. returns only a sanitized decision and exact body fingerprint.
+4. validates its UTC authorization window;
+5. atomically consumes the SIMULATION slot for the canonical effect;
+6. performs at most one simulation POST without an idempotency key;
+7. stores no raw provider payload;
+8. durably records a sanitized decision and exact body fingerprint.
 
-Eligible simulation response:
+Eligible response:
 
 ```text
 HTTP 200
@@ -81,77 +132,96 @@ status = simulated
 wouldRevert = false
 ```
 
-Any structured final rejection produces `REJECTED_FINAL`. Any ambiguous or
-malformed outcome produces `SIMULATION_OUTCOME_UNKNOWN`; it never authorizes a
-broadcast.
+A structured final rejection becomes `REJECTED_FINAL`. Timeout, disconnect,
+malformed response, classifier failure, or persistence ambiguity becomes
+`OUTCOME_UNKNOWN`; it never authorizes broadcast.
+
+A completed receipt can be reconstructed after restart only from a durable
+final ledger record. A `CLAIMED` or `OUTCOME_UNKNOWN` simulation is not an
+eligible receipt.
 
 ## Broadcast phase
 
 `KeeperHubApprovedBroadcastPort`:
 
-1. accepts only an eligible simulation receipt;
-2. requires a separate `KeeperHubBroadcastAuthorization`;
+1. accepts only a durable eligible simulation receipt;
+2. requires a different, separate
+   `KeeperHubBroadcastAuthorization`;
 3. rejects approval created before the simulation;
 4. requires the exact runtime flag `--approve-testnet-write`;
-5. re-hashes the current simulation body and compares it with the approved
-   receipt before any external call;
-6. accepts only the matching canonical `IN_FLIGHT` attempt;
-7. performs exactly one broadcast POST using the durable request key as
+5. validates the approval window against the durable `IN_FLIGHT` timestamp;
+6. re-hashes the current simulation body and compares it with the durable
+   receipt before external access;
+7. accepts only the matching canonical attempt and request fingerprint;
+8. atomically consumes the BROADCAST slot for the canonical effect;
+9. performs exactly one broadcast POST using the durable request key as
    `Idempotency-Key`;
-8. never performs another simulation;
-9. never retries.
+10. never performs another simulation and never retries.
 
-The port is intended to be wrapped by `ProviderReferencePersistingPort` and
-invoked through `ExecutionDispatchService`, preserving this order:
+The port is wrapped by `ProviderReferencePersistingPort` and invoked through
+`ExecutionDispatchService`, preserving:
 
 ```text
 PREPARED
   → durable IN_FLIGHT
+  → durable BROADCAST claim
   → one broadcast POST
   → durable provider reference
   → PROVIDER_ACKNOWLEDGED
 ```
 
-If the broadcast response is ambiguous, generic dispatch must persist
+If a response is accepted but the final authorization-ledger transition fails,
+the initial `CLAIMED` row still blocks another POST. The provider result is
+returned so `ProviderReferencePersistingPort` can persist `executionId` before
+acknowledgement.
+
+If the provider result or transport is ambiguous, generic dispatch persists
 `EXECUTION_UNKNOWN`. A second POST is forbidden.
 
 ## Three-effect live Mission sequencing
 
-For the first controlled 12 + 7 + 11 Mission:
+For the first controlled three-effect Mission:
 
 ```text
 1. Admit and read back the complete Mission and all three effects.
 2. Reconcile every effect before selecting execution work.
-3. Anna 12:
-   - if independently verified, classify SKIP_VERIFIED;
-   - never create execution authority.
-4. Mark 7:
-   - only EXECUTE_MISSING may enter the controlled simulation gate.
-5. Leo 11:
-   - if any prior outcome is possible, classify RECONCILE_REQUIRED;
-   - do not simulate or broadcast.
+3. Classify independently verified effects as SKIP_VERIFIED.
+4. Permit only EXECUTE_MISSING effects to enter simulation.
+5. Keep possible prior outcomes in RECONCILE_REQUIRED.
 6. Keep maximum_concurrent_mutating_effects = 1.
-7. Verify the exact event for one effect before advancing to another effect.
-8. Recompute the Mission partition and total after every reconciliation.
+7. Complete simulation review and separate broadcast approval per effect.
+8. Verify the exact ERC-20 event before advancing to another effect.
+9. Recompute all Mission partitions and immutable total after reconciliation.
 ```
 
-The first live proof should normally use a fresh three-effect Mission whose
-exact recipient/amount plan is private and reviewed. The public Anna/Mark/Leo
-scenario may remain a sanitized replay unless revealing its real addresses and
-amounts is explicitly approved.
+The public Anna 12 / Mark 7 / Leo 11 scenario remains a sanitized reference
+preset. The first live proof should use a fresh private three-effect Mission
+whose exact addresses, amounts, token, fee cap, and confirmation policy are
+reviewed in the action sheet.
+
+Recommended first proof shape:
+
+```text
+effect A → one controlled simulation + one broadcast + exact verification
+effect B → only after A is VERIFIED
+effect C → only after A and B are reconciled
+```
+
+This is intentionally serial. Parallel mutating effects add no judging value
+before single-effect recovery is proven and increase duplicate-funds risk.
 
 ## Remaining P0 work
 
-This split gate closes the in-process action-specific approval gap. It does not
-by itself authorize a KeeperHub call and does not replace these external gates:
+This patch closes the action-specific approval and restart-reset gaps. It does
+not authorize a KeeperHub call and does not replace these gates:
 
 - exact supported wallet-readiness surface;
 - native gas and ERC-20 balance confirmation;
-- chain/token/decimals confirmation;
+- enabled testnet, token, and decimals confirmation;
 - completed private action sheet;
-- local credential injection;
-- simulation-specific approval;
-- later broadcast-specific approval;
+- local credential injection outside Git and chat;
+- one simulation-specific approval;
+- later one broadcast-specific approval;
 - bounded status observation;
 - independent exact event verifier connected to an approved read-only source;
 - redaction and claim-match review.
@@ -160,12 +230,15 @@ A mission-level runtime command still must compose the existing admission,
 continuation, dispatch, provider-reference, status, verification, and Doctor
 services without bypassing their state machines.
 
+The runtime command must fail closed when it detects the combined offline
+`KeeperHubDirectExecutionPort` instead of the split controlled path.
+
 ## P1 surface-exclusivity requirement
 
 Direct Execution, KeeperHub Workflow, and MCP are separate provider surfaces.
-The same canonical effect must never be executed through more than one surface.
+The same canonical effect must never execute through more than one surface.
 
-Before enabling Workflow or MCP, add a durable effect-to-surface binding:
+Before enabling Workflow or MCP, add a durable binding:
 
 ```text
 effect_id → DIRECT_EXECUTION | WORKFLOW | MCP
@@ -176,11 +249,54 @@ Required rules:
 - binding is created before the first surface-specific mutating call;
 - identical rebinding is idempotent;
 - a different surface for the same effect is a terminal conflict;
-- restart reads the binding before selecting a provider;
-- orchestration may use MCP as a control plane, but MCP cannot create a second
-  economic authority for an effect already bound to Direct Execution or
-  Workflow;
-- no fallback from one mutating surface to another after ambiguity.
+- restart reads the binding before provider selection;
+- MCP may orchestrate control-plane work but cannot create a second economic
+  authority for an effect already bound to Direct Execution or Workflow;
+- no fallback from one mutating surface to another after ambiguity;
+- all provider references retain the chosen surface identity.
 
-Until that persistence layer is reviewed and merged, P1 Workflow/MCP execution
-remains blocked. Read-only planning and documentation are allowed.
+Until that persistence layer is reviewed and merged, P1 Workflow/MCP mutation
+remains blocked. Read-only planning, schema work, and tests are allowed.
+
+## Decision review
+
+### Advantages
+
+- approvals are action-specific instead of implied by one method call;
+- duplicate POST authority survives restart and concurrency;
+- simulation evidence is durable and sanitized;
+- accepted execution references can still be persisted if the auxiliary ledger
+  finalization fails;
+- existing proven Mission and attempt schemas remain untouched.
+
+### Drawbacks
+
+- one more SQLite sidecar must be managed and backed up;
+- the flow requires two explicit operator review points;
+- one simulation per effect is intentionally strict and may require a new
+  Mission version after a final rejection.
+
+### Risks
+
+- wiring the old combined port into a future CLI would bypass the split gate;
+- losing the authorization ledger while keeping other runtime DBs would force a
+  full stop and manual recovery;
+- approval references must remain opaque and must not contain credentials or
+  private provider payloads;
+- a durable `CLAIMED` state may require manual review even when no external call
+  actually occurred.
+
+### Alternatives
+
+1. Put approval consumption into the existing attempt table. This reduces the
+   number of DB files but requires a higher-risk migration of proven state.
+2. Keep an in-memory one-shot flag. This is simpler but unsafe after restart.
+3. Rely only on KeeperHub idempotency. This cannot enforce separate approvals,
+   has bounded retention, and does not protect Mission-level authority.
+
+### Recommendation
+
+Merge the durable split gate only after full green CI and exact diff review.
+Then implement the mission-level offline runtime orchestrator in a separate PR.
+Implement P1 surface binding in another separate PR before any Workflow or MCP
+mutation is enabled.
