@@ -27,6 +27,9 @@ A successful result proves only that KeeperHub accepted the exact frozen request
 - A timeout, disconnect, malformed response, anomalous response, or persistence uncertainty consumes the slot and becomes `OUTCOME_UNKNOWN` / no retry.
 - `401`, `403`, `422`, or an explicit simulated revert is final for this effect.
 - There is no broadcast subcommand, broadcast flag, mainnet option, Workflow/MCP path, signing path, or funds-moving capability.
+- A local input failure before any provider call is not a provider retry. Only the explicitly classified `LOCAL_INPUT_CORRECTION_ALLOWED` result permits correcting the local value and rerunning the same command.
+- Corrupt, missing, mismatched, or unexpected local state produces `MANUAL_LOCAL_RECOVERY_REQUIRED`; preserve the files and review them instead of deleting or recreating state.
+- Provider diagnostics expose only an explicit allowlist of already reviewed stable error codes. Unknown error strings, raw messages, payloads, request IDs, and headers remain suppressed.
 
 ## Step 1 — synchronize reviewed main
 
@@ -61,6 +64,16 @@ Expected status: `PREPARED`. Share only that sanitized JSON for review. It conta
 
 Do not run `execute` until the exact preview is reviewed.
 
+A malformed or missing recipient returns:
+
+```text
+retry = LOCAL_INPUT_CORRECTION_ALLOWED
+network_calls = 0
+next_action = CORRECT_LOCAL_INPUT_AND_RERUN_PREPARE
+```
+
+This permits correcting only the local recipient input. It does not authorize any provider retry and does not apply after a simulation slot has been claimed.
+
 ## Step 3 — execute exactly one simulation after preview review
 
 Use the exact `approval_challenge` from the prepared preview. Enter both values through prompts so the API key is not stored in command history:
@@ -91,6 +104,16 @@ $simulationExit
 
 Share only the sanitized JSON result. Do not share the private action sheet, SQLite files, key, full addresses, or raw provider response.
 
+A missing or malformed local key, missing approval, or approval mismatch is classified before the durable claim and returns:
+
+```text
+retry = LOCAL_INPUT_CORRECTION_ALLOWED
+network_calls = 0
+next_action = CORRECT_LOCAL_INPUT_AND_RERUN_EXECUTE
+```
+
+Only that exact classification permits correcting the local input. Every provider response, timeout, ambiguity, durable claim, terminal decision, or unknown result remains `retry = FORBIDDEN`.
+
 ## Result interpretation
 
 ### PASS
@@ -112,7 +135,15 @@ STOP after PASS. Do not run the tool again and do not broadcast.
 
 ### Final rejection
 
-A supported final rejection produces `STOP`, `REJECTED_FINAL`, and no retry for the same effect. Record the result and review whether the organization wallet, gas, USDC balance, credential scope, or request assumptions require a new separately authorized effect.
+A supported final rejection produces `STOP`, `REJECTED_FINAL`, and no retry for the same effect. Record the result and review whether the organization wallet, gas, USDC balance, credential scope, or request assumptions require official clarification.
+
+When the response contains a provider error code that is on the reviewed allowlist, the sanitized output may contain:
+
+```text
+provider_summary.provider_error_code
+```
+
+The current allowlist contains only `insufficient_scope`, which was previously observed and reviewed. Any other provider error value is omitted rather than echoed. The output never includes raw provider messages, request IDs, payloads, or headers.
 
 ### Ambiguity
 
@@ -125,6 +156,18 @@ NO CHANGED PAYLOAD
 NO BROADCAST
 MANUAL REVIEW
 ```
+
+### Local state failure
+
+A corrupt, missing, mismatched, or unexpected action sheet produces:
+
+```text
+retry = MANUAL_LOCAL_RECOVERY_REQUIRED
+network_calls = 0
+next_action = PRESERVE_LOCAL_STATE_AND_REVIEW
+```
+
+Do not delete or recreate the action sheet or SQLite databases. This classification allows inspection and recovery planning only; it does not authorize a provider call.
 
 ## Read-only status after restart
 
