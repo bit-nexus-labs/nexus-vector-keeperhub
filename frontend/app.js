@@ -106,7 +106,7 @@
       hash ^= canonical.charCodeAt(index);
       hash = Math.imul(hash, 16777619);
     }
-    return `mission:${(hash >>> 0).toString(16).padStart(8, "0")}:${payments.length}`;
+    return `lab-checksum:${(hash >>> 0).toString(16).padStart(8, "0")}:${payments.length}`;
   }
 
   function statusClass(value) {
@@ -138,9 +138,9 @@
 
     if (activeScenario === "double-submit") {
       if (effectIndex === 0) return {
-        effectState: "CHAIN_CONFIRMED",
-        attemptState: "VERIFIED",
-        continuation: "SKIP_VERIFIED",
+        effectState: "RESERVED",
+        attemptState: "IN_FLIGHT",
+        continuation: "RECONCILE_REQUIRED",
         doctorCode: "DUPLICATE_SUPPRESSED"
       };
       return base;
@@ -402,7 +402,7 @@
     if (!missionLocked) return {
       action: "PERSIST",
       title: "Safe next action: PERSIST MISSION",
-      summary: "Create an immutable Mission identity before any effect can cross a provider boundary."
+      summary: "Persist the Mission before any effect can cross a provider boundary."
     };
     if (!activeScenario) return {
       action: "READY",
@@ -547,7 +547,7 @@
     if (name === "restart") processEpoch += 1;
     event("FAILURE_SCENARIO_APPLIED", name.toUpperCase().replaceAll("-", "_"), "alert");
     if (name === "lost-response") event("EXECUTION_UNKNOWN", "blind retry denied; reconciliation required", "alert");
-    if (name === "double-submit") event("DUPLICATE_SUPPRESSED", "two requests · one canonical execution", "safe");
+    if (name === "double-submit") event("DUPLICATE_SUPPRESSED", "two simulated requests · one canonical authority", "safe");
     if (name === "restart") event("PROCESS_RESTARTED", `epoch ${processEpoch}; durable state restored`, "safe");
     if (name === "payload-mutation") event("FINGERPRINT_CONFLICT", "changed economic body blocked", "alert");
     if (name === "retry-all") event("MISSION_REPARTITIONED", "verified skip · missing execute · unknown reconcile", "safe");
