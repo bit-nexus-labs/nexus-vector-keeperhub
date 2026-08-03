@@ -540,7 +540,14 @@ def execute_action_sheet(
     if (
         not isinstance(api_key, str)
         or not api_key.startswith("kh_")
+        or len(api_key) <= 3
         or len(api_key) > 512
+        or api_key.strip() != api_key
+        or not api_key.isascii()
+        or any(
+            not (character.isalnum() or character in {"_", "-"})
+            for character in api_key
+        )
     ):
         _fail("INVALID_LOCAL_API_KEY")
 
