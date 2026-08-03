@@ -17,6 +17,7 @@ separates those actions and makes their POST authority durable across restart.
 
 ```text
 durable Mission/effects/attempt plan
+  → durable canonical attempt in PREPARED
   → completed private action sheet
   → one simulation-specific approval
   → durable SIMULATION claim
@@ -116,12 +117,14 @@ reviewed.
 1. accepts an immutable `ExecutionAttemptPlan` and
    `KeeperHubTransferIntent`;
 2. recomputes the durable request fingerprint before transport access;
-3. requires an exact `KeeperHubSimulationAuthorization`;
-4. validates its UTC authorization window;
-5. atomically consumes the SIMULATION slot for the canonical effect;
-6. performs at most one simulation POST without an idempotency key;
-7. stores no raw provider payload;
-8. durably records a sanitized decision and exact body fingerprint.
+3. creates or reads back the exact canonical attempt in `PREPARED`;
+4. blocks if that attempt already left `PREPARED`;
+5. requires an exact `KeeperHubSimulationAuthorization`;
+6. validates its UTC authorization window;
+7. atomically consumes the SIMULATION slot for the canonical effect;
+8. performs at most one simulation POST without an idempotency key;
+9. stores no raw provider payload;
+10. durably records a sanitized decision and exact body fingerprint.
 
 Eligible response:
 
@@ -212,8 +215,9 @@ before single-effect recovery is proven and increase duplicate-funds risk.
 
 ## Remaining P0 work
 
-This patch closes the action-specific approval and restart-reset gaps. It does
-not authorize a KeeperHub call and does not replace these gates:
+This patch closes the action-specific approval, durable PREPARED provenance,
+and restart-reset gaps. It does not authorize a KeeperHub call and does not
+replace these gates:
 
 - exact supported wallet-readiness surface;
 - native gas and ERC-20 balance confirmation;
