@@ -24,7 +24,7 @@ Mission
   └── effects[1..10]
 ```
 
-Each effect is independently classified. Equal amounts do not make two effects interchangeable. Canonical identity conceptually binds:
+Each effect is independently classified. Equal amounts do not make two effects interchangeable. Canonical runtime identity conceptually binds:
 
 ```text
 Mission context
@@ -50,11 +50,13 @@ After `Persist Mission`:
 
 - the effect set becomes immutable for that session;
 - aliases and amounts are locked;
-- a deterministic local fingerprint is displayed;
+- a deterministic local sandbox checksum is displayed;
 - mutation requires a new Mission version;
 - failure scenarios become available.
 
-This UI lock models the domain rule that a changed economic payload must not reuse an existing canonical effect identity.
+The sandbox checksum is a compact UI consistency marker. It is not the cryptographic canonical Mission identity used by the runtime core.
+
+The UI lock models the domain rule that a changed economic payload must not reuse an existing canonical effect identity.
 
 ## Failure scenarios
 
@@ -79,8 +81,12 @@ Safe classification:
 ```text
 one canonical writer
 → duplicate suppressed
-→ one unique execution authority
+→ one canonical authority
+→ original attempt remains IN_FLIGHT
+→ RECONCILE_REQUIRED before continuation
 ```
+
+Duplicate suppression does not prove that a transfer completed and must never be projected directly to `CHAIN_CONFIRMED`.
 
 ### Restart the agent
 
@@ -147,7 +153,7 @@ The black box visualizes durable recovery concepts:
 - fingerprint conflict;
 - per-effect repartitioning.
 
-Displayed provider-request and unique-execution counters are deterministic sandbox telemetry, not external-call evidence.
+Displayed simulated-request and unique-authority counters are deterministic sandbox telemetry, not external-call or transaction evidence.
 
 ## Runtime boundary
 
