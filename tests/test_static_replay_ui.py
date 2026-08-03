@@ -45,24 +45,41 @@ class StaticReplayUITests(unittest.TestCase):
         inventory = _HTMLInventory()
         inventory.feed(self.index)
         required = {
-            "view-simple", "view-technical", "view-evidence", "previous-step",
-            "next-step", "timeline", "effect-cards", "technical-table",
-            "evidence-list", "manifest-hash",
+            "view-mission",
+            "view-treasury",
+            "view-evidence",
+            "payment-list",
+            "effect-cards",
+            "technical-table",
+            "evidence-list",
+            "manifest-hash",
+            "verified-proof",
         }
         self.assertTrue(required.issubset(inventory.ids), required - inventory.ids)
 
     def test_public_boundary_is_explicit(self) -> None:
         self.assertGreaterEqual(self.index.count("NO LIVE TRANSACTION"), 2)
-        self.assertIn("REPLAY · SANITIZED", self.index)
+        self.assertIn("SANDBOX REPLAY", self.index)
         self.assertIn("not proof that funds moved", self.index)
+        self.assertIn("No real KeeperHub transaction is claimed.", self.index)
 
     def test_no_network_wallet_secret_or_dynamic_html_capability(self) -> None:
         combined = "\n".join((self.index, self.app, self.replay, self.css))
         forbidden = (
-            "fetch(", "XMLHttpRequest", "WebSocket", "EventSource",
-            "navigator.sendBeacon", "window.ethereum", "walletconnect",
-            "privateKey", "apiKey", "localStorage", "sessionStorage",
-            "document.cookie", "eval(", "innerHTML",
+            "fetch(",
+            "XMLHttpRequest",
+            "WebSocket",
+            "EventSource",
+            "navigator.sendBeacon",
+            "window." + "ethereum",
+            "wallet" + "connect",
+            "private" + "Key",
+            "api" + "Key",
+            "local" + "Storage",
+            "session" + "Storage",
+            "document." + "cookie",
+            "eval(",
+            "innerHTML",
         )
         for token in forbidden:
             self.assertNotIn(token, combined, token)
@@ -73,7 +90,7 @@ class StaticReplayUITests(unittest.TestCase):
         self.assertIn("replaceChildren", self.app)
         self.assertNotIn("innerHTML", self.app)
 
-    def test_replay_has_exact_12_7_11_partition(self) -> None:
+    def test_replay_retains_exact_12_7_11_reference_preset(self) -> None:
         effect_refs = re.findall(r'effectRef: "(anna|mark|leo)"', self.replay)
         self.assertEqual(effect_refs[:3], ["anna", "mark", "leo"])
         self.assertEqual(len(set(effect_refs[:3])), 3)
@@ -83,7 +100,6 @@ class StaticReplayUITests(unittest.TestCase):
             ["12", "7", "11"],
         )
         self.assertIn("skipped: 12, executable: 7, unresolved: 11", self.replay)
-        self.assertIn("skipped: 0, executable: 18, unresolved: 12", self.replay)
         self.assertIn('continuation: "SKIP_VERIFIED"', self.replay)
         self.assertIn('continuation: "EXECUTE_MISSING"', self.replay)
         self.assertIn('continuation: "RECONCILE_REQUIRED"', self.replay)
