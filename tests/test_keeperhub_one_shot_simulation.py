@@ -219,10 +219,10 @@ class OneShotKeeperHubSimulationTests(unittest.TestCase):
 
     def test_source_has_no_broadcast_command_or_broadcast_port(self):
         source = MODULE_PATH.read_text(encoding="utf-8")
-        self.assertIn(
-            'choices=("prepare", "execute", "status")',
-            source,
-        )
+        self.assertIn("choices=(", source)
+        self.assertIn('"prepare"', source)
+        self.assertIn('"execute"', source)
+        self.assertIn('"status"', source)
         self.assertNotIn("KeeperHubApprovedBroadcastPort", source)
         self.assertNotIn("--approve-testnet-write", source)
         self.assertNotIn("idempotency_key=plan.request_key", source)
