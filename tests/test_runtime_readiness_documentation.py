@@ -41,12 +41,16 @@ class RuntimeReadinessDocumentationTests(unittest.TestCase):
         for phrase in (
             "does **not** claim that a real KeeperHub testnet transaction",
             "WAITING FOR ACTION-SPECIFIC APPROVAL",
-            "maximum_broadcasts: 1",
+            "maximum_simulation_posts: 1",
+            "maximum_broadcast_posts: 1",
+            "maximum_mutating_calls: 1",
+            "maximum_new_request_keys_after_ambiguity: 0",
             "Mainnet and blind retry remain blocked",
             "No step authorizes automatic resend after ambiguity",
         ):
             self.assertIn(phrase, combined)
         self.assertNotIn("keeperhub_api_key:", self.readiness)
+        self.assertIn("DEPLOY VERIFY PENDING", self.readiness)
 
     def test_public_manifest_contains_current_offline_integration_claims(self) -> None:
         expected = {
