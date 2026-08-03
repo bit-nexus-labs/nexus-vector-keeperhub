@@ -20,7 +20,6 @@ from nexus_vector.domain.execution_attempts import (
     ExecutionAttemptState,
     build_execution_attempt_plan,
     create_initial_execution_attempt,
-    transition_execution_attempt,
 )
 from nexus_vector.domain.mission_models import EffectState, MissionState
 from nexus_vector.integrations.keeperhub_controlled_execution import (
@@ -60,52 +59,40 @@ EXECUTION_ID = "keeperhub-execution-controlled-1"
 
 class ScriptedTransport:
     def __init__(self, responses):
-        self._responses = list(responses)
-        self._lock = threading.Lock()
+        self.responses = list(responses)
         self.calls = []
+        self.lock = threading.Lock()
 
     def post_transfer(self, body, *, idempotency_key):
-        with self._lock:
+        with self.lock:
             self.calls.append((dict(body), idempotency_key))
-            if not self._responses:
+            if not self.responses:
                 raise AssertionError("UNEXPECTED_TRANSPORT_CALL")
-            response = self._responses.pop(0)
+            response = self.responses.pop(0)
         if isinstance(response, BaseException):
             raise response
         return response
 
 
-def make_intent(**changes):
-    values = {
-        "chain_id": 84532,
-        "recipient_address": RECIPIENT,
-        "amount_base_units": 12,
-        "token_address": TOKEN,
-        "token_decimals": 6,
-        "gas_limit_multiplier": "1.15",
-    }
-    values.update(changes)
-    return KeeperHubTransferIntent(**values)
+def intent(amount=12):
+    return KeeperHubTransferIntent(
+        chain_id=84532,
+        recipient_address=RECIPIENT,
+        amount_base_units=amount,
+        token_address=TOKEN,
+        token_decimals=6,
+        gas_limit_multiplier="1.15",
+    )
 
 
-def make_plan(intent=None):
-    selected = intent or make_intent()
+def plan(selected=None):
+    selected = selected or intent()
     return build_execution_attempt_plan(
         mission_key=MISSION_KEY,
         effect_id=EFFECT_ID,
         provider_namespace=KEEPERHUB_PROVIDER_NAMESPACE,
         request_key=REQUEST_KEY,
         request_material=selected.request_material,
-    )
-
-
-def make_in_flight(plan=None, updated_at=T0 + timedelta(minutes=3)):
-    selected = plan or make_plan()
-    initial = create_initial_execution_attempt(selected, T0)
-    return transition_execution_attempt(
-        initial,
-        ExecutionAttemptState.IN_FLIGHT,
-        updated_at,
     )
 
 
@@ -130,41 +117,21 @@ def broadcast_ok():
     )
 
 
-def simulation_authorization(plan=None, **changes):
-    selected = plan or make_plan()
-    values = {
-        "action_sheet_id": "action-sheet-20260803-001",
-        "approval_reference": "approval-simulation-001",
-        "attempt_id": selected.attempt_id,
-        "request_fingerprint": selected.request_fingerprint,
-        "authorized_at_utc": T0,
-        "expires_at_utc": T0 + timedelta(minutes=2),
-    }
-    values.update(changes)
-    return KeeperHubSimulationAuthorization(**values)
-
-
-def eligible_receipt(ledger, transport=None, intent=None, plan=None):
-    selected_intent = intent or make_intent()
-    selected_plan = plan or make_plan(selected_intent)
-    selected_transport = transport or ScriptedTransport([simulation_ok()])
-    service = KeeperHubControlledSimulationService(
-        selected_transport,
-        selected_intent,
-        ledger,
+def simulation_approval(selected_plan, reference="approval-simulation-001"):
+    return KeeperHubSimulationAuthorization(
+        action_sheet_id="action-sheet-20260803-001",
+        approval_reference=reference,
+        attempt_id=selected_plan.attempt_id,
+        request_fingerprint=selected_plan.request_fingerprint,
+        authorized_at_utc=T0,
+        expires_at_utc=T0 + timedelta(minutes=2),
     )
-    receipt = service.simulate(
-        selected_plan,
-        simulation_authorization(selected_plan),
-        T0 + timedelta(minutes=1),
-    )
-    return receipt, selected_transport
 
 
-def broadcast_authorization(receipt, **changes):
+def broadcast_approval(receipt, reference="approval-broadcast-001", **changes):
     values = {
         "action_sheet_id": receipt.action_sheet_id,
-        "approval_reference": "approval-broadcast-001",
+        "approval_reference": reference,
         "attempt_id": receipt.attempt_id,
         "request_fingerprint": receipt.request_fingerprint,
         "simulation_body_fingerprint": receipt.simulation_body_fingerprint,
@@ -196,154 +163,201 @@ class FakeStoredMission:
 
 
 class FakeMissionLookup:
-    def get(self, mission_key: str):
+    def get(self, mission_key):
         return FakeStoredMission() if mission_key == MISSION_KEY else None
 
 
 class KeeperHubControlledExecutionTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self._temporary = tempfile.TemporaryDirectory()
-        self.root = Path(self._temporary.name)
-        self.ledger_path = self.root / "authorization-ledger.sqlite3"
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        self.attempt_path = self.root / "attempts.sqlite3"
+        self.ledger_path = self.root / "authorizations.sqlite3"
+        self.attempts = SQLiteExecutionAttemptStore(self.attempt_path)
         self.ledger = SQLiteKeeperHubAuthorizationLedger(self.ledger_path)
 
-    def tearDown(self) -> None:
-        self._temporary.cleanup()
+    def tearDown(self):
+        self.temporary.cleanup()
 
-    def test_simulation_requires_exact_authorization_and_durable_one_shot(self):
-        intent = make_intent()
-        plan = make_plan(intent)
-        transport = ScriptedTransport([simulation_ok()])
-        service = KeeperHubControlledSimulationService(
+    def service(self, transport, selected_intent=None, *, restart=False):
+        attempts = (
+            SQLiteExecutionAttemptStore(self.attempt_path)
+            if restart
+            else self.attempts
+        )
+        ledger = (
+            SQLiteKeeperHubAuthorizationLedger(self.ledger_path)
+            if restart
+            else self.ledger
+        )
+        return KeeperHubControlledSimulationService(
             transport,
-            intent,
-            self.ledger,
+            selected_intent or intent(),
+            attempts,
+            ledger,
         )
 
-        mismatched = dataclasses.replace(
-            simulation_authorization(plan),
-            request_fingerprint="xrf_" + "00" * 32,
-        )
-        with self.assertRaises(KeeperHubControlledExecutionError) as caught:
-            service.simulate(plan, mismatched, T0 + timedelta(minutes=1))
-        self.assertEqual(
-            caught.exception.code,
-            "SIMULATION_AUTHORIZATION_MISMATCH",
-        )
-        self.assertEqual(transport.calls, [])
-
-        receipt = service.simulate(
-            plan,
-            simulation_authorization(plan),
+    def simulate_eligible(self, selected_intent=None):
+        selected_intent = selected_intent or intent()
+        selected_plan = plan(selected_intent)
+        transport = ScriptedTransport([simulation_ok()])
+        receipt = self.service(transport, selected_intent).simulate(
+            selected_plan,
+            simulation_approval(selected_plan),
             T0 + timedelta(minutes=1),
+        )
+        return selected_intent, selected_plan, receipt, transport
+
+    def broadcast_port(
+        self,
+        selected_intent,
+        receipt,
+        transport,
+        *,
+        restart=False,
+        reference="approval-broadcast-001",
+        **changes,
+    ):
+        ledger = (
+            SQLiteKeeperHubAuthorizationLedger(self.ledger_path)
+            if restart
+            else self.ledger
+        )
+        durable_receipt = (
+            load_keeperhub_simulation_receipt(
+                ledger,
+                receipt.approval_reference,
+            )
+            if restart
+            else receipt
+        )
+        return KeeperHubApprovedBroadcastPort(
+            transport,
+            selected_intent,
+            durable_receipt,
+            broadcast_approval(
+                durable_receipt,
+                reference=reference,
+                **changes,
+            ),
+            ledger,
+        )
+
+    def test_simulation_creates_durable_prepared_attempt_and_receipt(self):
+        selected_intent, selected_plan, receipt, transport = (
+            self.simulate_eligible()
         )
         self.assertEqual(
             receipt.decision,
             KeeperHubSimulationDecision.ELIGIBLE_FOR_BROADCAST_APPROVAL,
         )
-        self.assertEqual(len(transport.calls), 1)
-        body, key = transport.calls[0]
-        self.assertIs(body["simulate"], True)
-        self.assertIsNone(key)
-
-        restarted_ledger = SQLiteKeeperHubAuthorizationLedger(
-            self.ledger_path
+        durable_attempt = self.attempts.get(selected_plan.attempt_id)
+        self.assertEqual(
+            durable_attempt.record.state,
+            ExecutionAttemptState.PREPARED,
         )
+        self.assertEqual(durable_attempt.record.plan, selected_plan)
         restored = load_keeperhub_simulation_receipt(
-            restarted_ledger,
+            SQLiteKeeperHubAuthorizationLedger(self.ledger_path),
             receipt.approval_reference,
         )
         self.assertEqual(restored, receipt)
+        self.assertEqual(len(transport.calls), 1)
+        self.assertIs(transport.calls[0][0]["simulate"], True)
+        self.assertIsNone(transport.calls[0][1])
+        self.assertEqual(selected_intent.amount_base_units, 12)
 
-        second_transport = ScriptedTransport([simulation_ok()])
-        restarted_service = KeeperHubControlledSimulationService(
-            second_transport,
-            intent,
-            restarted_ledger,
-        )
-        changed_reference = simulation_authorization(
-            plan,
-            approval_reference="approval-simulation-002",
-        )
-        with self.assertRaises(
-            KeeperHubControlledExecutionError
-        ) as exhausted:
-            restarted_service.simulate(
-                plan,
-                changed_reference,
-                T0 + timedelta(minutes=1),
-            )
-        self.assertEqual(
-            exhausted.exception.code,
-            "AUTHORIZATION_ALREADY_CONSUMED",
-        )
-        self.assertEqual(second_transport.calls, [])
-
-    def test_ambiguous_simulation_consumes_budget_across_restart(self):
-        plan = make_plan()
-        transport = ScriptedTransport([TimeoutError("timeout")])
-        service = KeeperHubControlledSimulationService(
-            transport,
-            make_intent(),
-            self.ledger,
-        )
-
-        with self.assertRaises(KeeperHubControlledExecutionError) as unknown:
-            service.simulate(
-                plan,
-                simulation_authorization(plan),
-                T0 + timedelta(minutes=1),
-            )
-        self.assertEqual(unknown.exception.code, "SIMULATION_OUTCOME_UNKNOWN")
-        durable = self.ledger.get_for_attempt(
-            KeeperHubAuthorizationPhase.SIMULATION,
-            plan.attempt_id,
-        )
-        self.assertEqual(
-            durable.state,
-            KeeperHubAuthorizationState.OUTCOME_UNKNOWN,
-        )
-
-        restarted_service = KeeperHubControlledSimulationService(
-            ScriptedTransport([simulation_ok()]),
-            make_intent(),
-            SQLiteKeeperHubAuthorizationLedger(self.ledger_path),
-        )
-        with self.assertRaises(
-            KeeperHubControlledExecutionError
-        ) as exhausted:
-            restarted_service.simulate(
-                plan,
-                simulation_authorization(
-                    plan,
-                    approval_reference="approval-simulation-after-restart",
+    def test_simulation_is_one_post_per_effect_across_restart(self):
+        _, selected_plan, _, _ = self.simulate_eligible()
+        second = ScriptedTransport([simulation_ok()])
+        with self.assertRaises(KeeperHubControlledExecutionError) as caught:
+            self.service(second, restart=True).simulate(
+                selected_plan,
+                simulation_approval(
+                    selected_plan,
+                    "approval-simulation-002",
                 ),
                 T0 + timedelta(minutes=1),
             )
         self.assertEqual(
-            exhausted.exception.code,
+            caught.exception.code,
             "AUTHORIZATION_ALREADY_CONSUMED",
         )
-        self.assertEqual(len(transport.calls), 1)
+        self.assertEqual(second.calls, [])
 
-    def test_concurrent_simulation_services_produce_one_post(self):
-        intent = make_intent()
-        plan = make_plan(intent)
+    def test_ambiguous_simulation_is_durable_unknown(self):
+        selected_plan = plan()
+        transport = ScriptedTransport([TimeoutError("timeout")])
+        with self.assertRaises(KeeperHubControlledExecutionError) as caught:
+            self.service(transport).simulate(
+                selected_plan,
+                simulation_approval(selected_plan),
+                T0 + timedelta(minutes=1),
+            )
+        self.assertEqual(caught.exception.code, "SIMULATION_OUTCOME_UNKNOWN")
+        record = self.ledger.get_for_attempt(
+            KeeperHubAuthorizationPhase.SIMULATION,
+            selected_plan.attempt_id,
+        )
+        self.assertEqual(
+            record.state,
+            KeeperHubAuthorizationState.OUTCOME_UNKNOWN,
+        )
+        with self.assertRaises(KeeperHubControlledExecutionError) as second:
+            self.service(
+                ScriptedTransport([simulation_ok()]),
+                restart=True,
+            ).simulate(
+                selected_plan,
+                simulation_approval(
+                    selected_plan,
+                    "approval-simulation-002",
+                ),
+                T0 + timedelta(minutes=1),
+            )
+        self.assertEqual(
+            second.exception.code,
+            "AUTHORIZATION_ALREADY_CONSUMED",
+        )
+
+    def test_non_prepared_attempt_blocks_before_transport(self):
+        selected_plan = plan()
+        self.attempts.initialize()
+        prepared = self.attempts.create(
+            create_initial_execution_attempt(selected_plan, T0)
+        )
+        self.attempts.transition(
+            prepared.record.attempt_id,
+            prepared.revision,
+            ExecutionAttemptState.IN_FLIGHT,
+            T0 + timedelta(seconds=1),
+        )
+        transport = ScriptedTransport([simulation_ok()])
+        with self.assertRaises(KeeperHubControlledExecutionError) as caught:
+            self.service(transport).simulate(
+                selected_plan,
+                simulation_approval(selected_plan),
+                T0 + timedelta(minutes=1),
+            )
+        self.assertEqual(caught.exception.code, "RECONCILIATION_REQUIRED")
+        self.assertEqual(transport.calls, [])
+
+    def test_concurrent_simulation_has_one_claim_winner(self):
+        selected_intent = intent()
+        selected_plan = plan(selected_intent)
         transport = ScriptedTransport([simulation_ok()])
 
         def run(index):
-            ledger = SQLiteKeeperHubAuthorizationLedger(self.ledger_path)
-            service = KeeperHubControlledSimulationService(
-                transport,
-                intent,
-                ledger,
-            )
             try:
-                return service.simulate(
-                    plan,
-                    simulation_authorization(
-                        plan,
-                        approval_reference=f"approval-simulation-{index}",
+                return self.service(
+                    transport,
+                    selected_intent,
+                    restart=True,
+                ).simulate(
+                    selected_plan,
+                    simulation_approval(
+                        selected_plan,
+                        f"approval-simulation-{index}",
                     ),
                     T0 + timedelta(minutes=1),
                 )
@@ -352,235 +366,189 @@ class KeeperHubControlledExecutionTests(unittest.TestCase):
 
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(run, (1, 2)))
-
-        receipts = [
-            result
-            for result in results
-            if not isinstance(result, str)
-        ]
-        errors = [
-            result
-            for result in results
-            if isinstance(result, str)
-        ]
-        self.assertEqual(len(receipts), 1)
-        self.assertEqual(errors, ["AUTHORIZATION_ALREADY_CONSUMED"])
+        self.assertEqual(
+            sum(not isinstance(item, str) for item in results),
+            1,
+        )
+        self.assertIn("AUTHORIZATION_ALREADY_CONSUMED", results)
         self.assertEqual(len(transport.calls), 1)
 
-    def test_rejected_simulation_cannot_create_broadcast_port(self):
-        plan = make_plan()
-        transport = ScriptedTransport([simulation_rejected()])
-        service = KeeperHubControlledSimulationService(
-            transport,
-            make_intent(),
-            self.ledger,
-        )
-        receipt = service.simulate(
-            plan,
-            simulation_authorization(plan),
+    def test_rejected_simulation_never_builds_broadcast_port(self):
+        selected_plan = plan()
+        receipt = self.service(
+            ScriptedTransport([simulation_rejected()])
+        ).simulate(
+            selected_plan,
+            simulation_approval(selected_plan),
             T0 + timedelta(minutes=1),
         )
         self.assertEqual(
             receipt.decision,
             KeeperHubSimulationDecision.REJECTED_FINAL,
         )
-
         with self.assertRaises(KeeperHubControlledExecutionError) as caught:
-            KeeperHubApprovedBroadcastPort(
-                ScriptedTransport([broadcast_ok()]),
-                make_intent(),
+            self.broadcast_port(
+                intent(),
                 receipt,
-                broadcast_authorization(receipt),
-                self.ledger,
+                ScriptedTransport([broadcast_ok()]),
             )
         self.assertEqual(caught.exception.code, "SIMULATION_NOT_ELIGIBLE")
 
-    def test_broadcast_requires_exact_runtime_flag(self):
-        receipt, _ = eligible_receipt(self.ledger)
-        with self.assertRaises(KeeperHubControlledExecutionError) as caught:
-            broadcast_authorization(
+    def test_broadcast_requires_exact_flag_and_unchanged_intent(self):
+        selected_intent, _, receipt, _ = self.simulate_eligible()
+        with self.assertRaises(KeeperHubControlledExecutionError) as flag:
+            broadcast_approval(
                 receipt,
                 runtime_flag="approve-testnet-write",
             )
         self.assertEqual(
-            caught.exception.code,
+            flag.exception.code,
             "INVALID_BROADCAST_RUNTIME_FLAG",
         )
-
-    def test_broadcast_approval_must_follow_simulation(self):
-        receipt, _ = eligible_receipt(self.ledger)
-        approval = broadcast_authorization(
-            receipt,
-            approved_at_utc=receipt.simulated_at_utc - timedelta(seconds=1),
-            expires_at_utc=receipt.simulated_at_utc + timedelta(minutes=5),
-        )
-        with self.assertRaises(KeeperHubControlledExecutionError) as caught:
-            KeeperHubApprovedBroadcastPort(
-                ScriptedTransport([broadcast_ok()]),
-                make_intent(),
+        with self.assertRaises(KeeperHubControlledExecutionError) as changed:
+            self.broadcast_port(
+                intent(amount=13),
                 receipt,
-                approval,
-                self.ledger,
+                ScriptedTransport([broadcast_ok()]),
             )
         self.assertEqual(
-            caught.exception.code,
-            "BROADCAST_APPROVED_BEFORE_SIMULATION",
-        )
-
-    def test_changed_intent_after_simulation_is_blocked(self):
-        receipt, _ = eligible_receipt(self.ledger)
-        changed = make_intent(amount_base_units=13)
-        with self.assertRaises(KeeperHubControlledExecutionError) as caught:
-            KeeperHubApprovedBroadcastPort(
-                ScriptedTransport([broadcast_ok()]),
-                changed,
-                receipt,
-                broadcast_authorization(receipt),
-                self.ledger,
-            )
-        self.assertEqual(
-            caught.exception.code,
+            changed.exception.code,
             "SIMULATION_BODY_FINGERPRINT_MISMATCH",
         )
+        self.assertEqual(selected_intent.amount_base_units, 12)
 
-    def test_broadcast_is_one_post_across_restart(self):
-        intent = make_intent()
-        plan = make_plan(intent)
-        receipt, _ = eligible_receipt(
-            self.ledger,
-            intent=intent,
-            plan=plan,
+    def test_broadcast_is_one_post_per_effect_across_restart(self):
+        selected_intent, selected_plan, receipt, _ = (
+            self.simulate_eligible()
         )
         transport = ScriptedTransport([broadcast_ok()])
-        approval = broadcast_authorization(receipt)
-        port = KeeperHubApprovedBroadcastPort(
-            transport,
-            intent,
+        result = self.broadcast_port(
+            selected_intent,
             receipt,
-            approval,
-            self.ledger,
+            transport,
+        ).execute(
+            self.attempts.transition(
+                selected_plan.attempt_id,
+                self.attempts.get(selected_plan.attempt_id).revision,
+                ExecutionAttemptState.IN_FLIGHT,
+                T0 + timedelta(minutes=3),
+            ).record
         )
-
-        result = port.execute(make_in_flight(plan))
         self.assertEqual(result.outcome, ExecutionPortOutcome.ACCEPTED)
         self.assertEqual(result.provider_reference, EXECUTION_ID)
         self.assertEqual(len(transport.calls), 1)
-        body, key = transport.calls[0]
-        self.assertNotIn("simulate", body)
-        self.assertEqual(body, intent.broadcast_body)
-        self.assertEqual(key, REQUEST_KEY)
+        self.assertNotIn("simulate", transport.calls[0][0])
+        self.assertEqual(transport.calls[0][1], REQUEST_KEY)
 
-        restarted_ledger = SQLiteKeeperHubAuthorizationLedger(
-            self.ledger_path
-        )
-        restored = load_keeperhub_simulation_receipt(
-            restarted_ledger,
-            receipt.approval_reference,
-        )
         second_transport = ScriptedTransport([broadcast_ok()])
-        second_port = KeeperHubApprovedBroadcastPort(
-            second_transport,
-            intent,
-            restored,
-            broadcast_authorization(
-                restored,
-                approval_reference="approval-broadcast-002",
-            ),
-            restarted_ledger,
-        )
-        with self.assertRaises(
-            KeeperHubControlledExecutionError
-        ) as exhausted:
-            second_port.execute(make_in_flight(plan))
+        with self.assertRaises(KeeperHubControlledExecutionError) as caught:
+            self.broadcast_port(
+                selected_intent,
+                receipt,
+                second_transport,
+                restart=True,
+                reference="approval-broadcast-002",
+            ).execute(
+                SQLiteExecutionAttemptStore(
+                    self.attempt_path
+                ).get(selected_plan.attempt_id).record
+            )
         self.assertEqual(
-            exhausted.exception.code,
+            caught.exception.code,
             "AUTHORIZATION_ALREADY_CONSUMED",
         )
         self.assertEqual(second_transport.calls, [])
 
-    def test_ambiguous_broadcast_consumes_budget_across_restart(self):
-        intent = make_intent()
-        plan = make_plan(intent)
-        receipt, _ = eligible_receipt(
-            self.ledger,
-            intent=intent,
-            plan=plan,
+    def test_ambiguous_broadcast_is_durable_unknown(self):
+        selected_intent, selected_plan, receipt, _ = (
+            self.simulate_eligible()
         )
+        prepared = self.attempts.get(selected_plan.attempt_id)
+        in_flight = self.attempts.transition(
+            selected_plan.attempt_id,
+            prepared.revision,
+            ExecutionAttemptState.IN_FLIGHT,
+            T0 + timedelta(minutes=3),
+        ).record
         transport = ScriptedTransport([TimeoutError("timeout")])
-        port = KeeperHubApprovedBroadcastPort(
-            transport,
-            intent,
-            receipt,
-            broadcast_authorization(receipt),
-            self.ledger,
-        )
-        attempt = make_in_flight(plan)
-
-        with self.assertRaises(KeeperHubControlledExecutionError) as unknown:
-            port.execute(attempt)
-        self.assertEqual(unknown.exception.code, "BROADCAST_OUTCOME_UNKNOWN")
-        durable = self.ledger.get_for_attempt(
+        with self.assertRaises(KeeperHubControlledExecutionError) as caught:
+            self.broadcast_port(
+                selected_intent,
+                receipt,
+                transport,
+            ).execute(in_flight)
+        self.assertEqual(caught.exception.code, "BROADCAST_OUTCOME_UNKNOWN")
+        record = self.ledger.get_for_attempt(
             KeeperHubAuthorizationPhase.BROADCAST,
-            plan.attempt_id,
+            selected_plan.attempt_id,
         )
         self.assertEqual(
-            durable.state,
+            record.state,
             KeeperHubAuthorizationState.OUTCOME_UNKNOWN,
         )
 
-        restarted_ledger = SQLiteKeeperHubAuthorizationLedger(
-            self.ledger_path
-        )
-        second_transport = ScriptedTransport([broadcast_ok()])
-        second_port = KeeperHubApprovedBroadcastPort(
-            second_transport,
-            intent,
-            load_keeperhub_simulation_receipt(
-                restarted_ledger,
-                receipt.approval_reference,
-            ),
-            broadcast_authorization(
-                receipt,
-                approval_reference="approval-broadcast-after-restart",
-            ),
-            restarted_ledger,
-        )
-        with self.assertRaises(
-            KeeperHubControlledExecutionError
-        ) as exhausted:
-            second_port.execute(attempt)
-        self.assertEqual(
-            exhausted.exception.code,
-            "AUTHORIZATION_ALREADY_CONSUMED",
-        )
-        self.assertEqual(second_transport.calls, [])
-
-    def test_expired_broadcast_approval_blocks_before_claim(self):
-        intent = make_intent()
-        plan = make_plan(intent)
-        receipt, _ = eligible_receipt(
-            self.ledger,
-            intent=intent,
-            plan=plan,
+    def test_full_dispatch_persists_execution_id_after_split_approval(self):
+        selected_intent, selected_plan, receipt, _ = (
+            self.simulate_eligible()
         )
         transport = ScriptedTransport([broadcast_ok()])
-        port = KeeperHubApprovedBroadcastPort(
-            transport,
-            intent,
+        direct = self.broadcast_port(
+            selected_intent,
             receipt,
-            broadcast_authorization(
-                receipt,
-                expires_at_utc=T0 + timedelta(minutes=4),
-            ),
-            self.ledger,
+            transport,
         )
-        attempt = make_in_flight(
-            plan,
-            updated_at=T0 + timedelta(minutes=5),
+        references = SQLiteProviderExecutionReferenceStore(
+            self.root / "provider-references.sqlite3"
+        )
+        wrapped = ProviderReferencePersistingPort(
+            direct,
+            references,
+            provider_namespace=KEEPERHUB_PROVIDER_NAMESPACE,
+        )
+        stored = ExecutionDispatchService(
+            FakeMissionLookup(),
+            self.attempts,
+        ).dispatch(
+            selected_plan,
+            wrapped,
+            T0 + timedelta(minutes=3),
+        )
+        self.assertEqual(
+            stored.record.state,
+            ExecutionAttemptState.PROVIDER_ACKNOWLEDGED,
+        )
+        self.assertEqual(
+            references.get(selected_plan.attempt_id).provider_reference,
+            EXECUTION_ID,
+        )
+        self.assertEqual(
+            self.ledger.get_for_attempt(
+                KeeperHubAuthorizationPhase.BROADCAST,
+                selected_plan.attempt_id,
+            ).state,
+            KeeperHubAuthorizationState.ACCEPTED,
         )
 
+    def test_expired_broadcast_blocks_before_claim(self):
+        selected_intent, selected_plan, receipt, _ = (
+            self.simulate_eligible()
+        )
+        prepared = self.attempts.get(selected_plan.attempt_id)
+        in_flight = self.attempts.transition(
+            selected_plan.attempt_id,
+            prepared.revision,
+            ExecutionAttemptState.IN_FLIGHT,
+            T0 + timedelta(minutes=5),
+        ).record
+        transport = ScriptedTransport([broadcast_ok()])
+        port = self.broadcast_port(
+            selected_intent,
+            receipt,
+            transport,
+            expires_at_utc=T0 + timedelta(minutes=4),
+        )
         with self.assertRaises(KeeperHubControlledExecutionError) as caught:
-            port.execute(attempt)
+            port.execute(in_flight)
         self.assertEqual(
             caught.exception.code,
             "BROADCAST_AUTHORIZATION_EXPIRED",
@@ -589,71 +557,14 @@ class KeeperHubControlledExecutionTests(unittest.TestCase):
         self.assertIsNone(
             self.ledger.get_for_attempt(
                 KeeperHubAuthorizationPhase.BROADCAST,
-                plan.attempt_id,
+                selected_plan.attempt_id,
             )
         )
 
-    def test_full_dispatch_persists_execution_id_after_split_approval(self):
-        intent = make_intent()
-        plan = make_plan(intent)
-        receipt, _ = eligible_receipt(
-            self.ledger,
-            intent=intent,
-            plan=plan,
-        )
-        broadcast_transport = ScriptedTransport([broadcast_ok()])
-        direct = KeeperHubApprovedBroadcastPort(
-            broadcast_transport,
-            intent,
-            receipt,
-            broadcast_authorization(receipt),
-            self.ledger,
-        )
-        attempt_store = SQLiteExecutionAttemptStore(
-            self.root / "attempts.sqlite3"
-        )
-        reference_store = SQLiteProviderExecutionReferenceStore(
-            self.root / "provider-refs.sqlite3"
-        )
-        wrapped = ProviderReferencePersistingPort(
-            direct,
-            reference_store,
-            provider_namespace=KEEPERHUB_PROVIDER_NAMESPACE,
-        )
-
-        stored = ExecutionDispatchService(
-            FakeMissionLookup(),
-            attempt_store,
-        ).dispatch(
-            plan,
-            wrapped,
-            T0 + timedelta(minutes=3),
-        )
+    def test_receipt_is_sanitized(self):
+        _, _, receipt, _ = self.simulate_eligible()
         self.assertEqual(
-            stored.record.state,
-            ExecutionAttemptState.PROVIDER_ACKNOWLEDGED,
-        )
-        durable_reference = reference_store.get(plan.attempt_id)
-        self.assertEqual(
-            durable_reference.provider_reference,
-            EXECUTION_ID,
-        )
-        self.assertEqual(len(broadcast_transport.calls), 1)
-        self.assertNotIn("simulate", broadcast_transport.calls[0][0])
-        durable_authorization = self.ledger.get_for_attempt(
-            KeeperHubAuthorizationPhase.BROADCAST,
-            plan.attempt_id,
-        )
-        self.assertEqual(
-            durable_authorization.state,
-            KeeperHubAuthorizationState.ACCEPTED,
-        )
-
-    def test_receipt_contains_only_bound_sanitized_metadata(self):
-        receipt, _ = eligible_receipt(self.ledger)
-        fields = {field.name for field in dataclasses.fields(receipt)}
-        self.assertEqual(
-            fields,
+            {field.name for field in dataclasses.fields(receipt)},
             {
                 "action_sheet_id",
                 "approval_reference",
