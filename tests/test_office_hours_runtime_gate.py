@@ -11,10 +11,11 @@ DOCS = ROOT / "docs"
 class OfficeHoursRuntimeGateTests(unittest.TestCase):
     def setUp(self) -> None:
         self.office = (DOCS / "KEEPERHUB_OFFICE_HOURS_20260804.md").read_text(encoding="utf-8")
+        self.legacy_office = (DOCS / "OFFICE_HOURS_QUESTIONS_20260804.md").read_text(encoding="utf-8")
         self.sheet = (DOCS / "CONTROLLED_TESTNET_ACTION_SHEET_TEMPLATE.md").read_text(encoding="utf-8")
         self.readiness = (DOCS / "RUNTIME_READINESS.md").read_text(encoding="utf-8")
         self.runbook = (DOCS / "TESTNET_EVIDENCE_RUNBOOK.md").read_text(encoding="utf-8")
-        self.combined = "\n".join((self.office, self.sheet, self.readiness, self.runbook))
+        self.combined = "\n".join((self.office, self.legacy_office, self.sheet, self.readiness, self.runbook))
 
     def test_office_hours_packet_is_narrow_and_scheduled(self) -> None:
         self.assertIn("2026-08-04 13:00 Europe/Kyiv", self.office)
@@ -33,6 +34,11 @@ class OfficeHoursRuntimeGateTests(unittest.TestCase):
             self.assertIn(topic, self.office)
         self.assertIn("exact UI path, endpoint, response field, status, or documented procedure", self.office)
         self.assertIn("A vague answer remains a blocker", self.readiness)
+
+    def test_legacy_question_list_is_explicitly_superseded(self) -> None:
+        self.assertIn("SUPERSEDED — DO NOT USE AS THE ACTIVE MEETING SCRIPT", self.legacy_office)
+        self.assertIn("KEEPERHUB_OFFICE_HOURS_20260804.md", self.legacy_office)
+        self.assertNotIn("Ask for narrow, written answers where possible", self.legacy_office)
 
     def test_action_sheet_separates_simulation_and_broadcast_authority(self) -> None:
         self.assertIn("TEMPLATE ONLY — NOT A TRANSACTION AUTHORIZATION", self.sheet)
