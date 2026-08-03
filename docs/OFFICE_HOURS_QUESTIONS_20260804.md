@@ -1,15 +1,13 @@
-# KeeperHub Office Hours — P0 Questions for 2026-08-04
+# KeeperHub Office Hours — Superseded Question List
 
-Ask for narrow, written answers where possible.
+**Status: SUPERSEDED — DO NOT USE AS THE ACTIVE MEETING SCRIPT**
 
-1. **Eligibility:** Does a project using the Direct Execution API on Base Sepolia satisfy the hackathon integration requirement without a workflow/MCP flow and without mainnet?
-2. **Wallet readiness:** What exact KeeperHub UI screen or documented API endpoint confirms that the organization wallet is configured and able to execute on Base Sepolia?
-3. **Current schema:** What is the current documented request and response schema for the minimal ERC-20 transfer execution path?
-4. **Lost response:** What exact lookup surface should a client use after a request may have executed but the HTTP response was lost?
-5. **Idempotency retention:** How long is the same request key guaranteed to retain replay/conflict behavior? Is the guarantee scoped to organization, endpoint, chain, and body fingerprint?
-6. **Evidence requirement:** What exact public explorer or KeeperHub transaction link is required in the DoraHacks submission?
-7. **Testnet:** Are there supported faucet/token recommendations and known Base Sepolia limitations for a minimal demonstration?
-8. **Rate/fee limits:** Are there current organization limits, provider fees, or execution quotas relevant to one small testnet transaction?
-9. **Finalist demo:** What video length and evidence format are preferred by judges?
+This early P0 list is retained only to preserve repository history and existing links.
 
-Do not ask for or paste API keys, wallet private material, raw authenticated payloads, or private organization identifiers in public channels.
+The canonical, reviewed question pack for the 2026-08-04 KeeperHub engineering office hours is:
+
+[`KEEPERHUB_OFFICE_HOURS_20260804.md`](KEEPERHUB_OFFICE_HOURS_20260804.md)
+
+The canonical pack adds the exact runtime gate, answer-capture schema, wallet-readiness blocker, split simulation/broadcast authorization, lost-response recovery questions, idempotency-retention details, status/polling evidence questions, and safe multi-effect demonstration requirements.
+
+Do not record API keys, authorization headers, wallet private material, raw authenticated payloads, private balances, or unredacted organization identifiers in either document or in public meeting channels.
