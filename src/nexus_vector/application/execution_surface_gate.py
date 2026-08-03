@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from nexus_vector.application.execution_dispatch import (
@@ -50,18 +51,12 @@ class SurfaceBoundExecutionPort:
         if not isinstance(surface, ExecutionSurface):
             _fail("INVALID_EXECUTION_SURFACE")
         try:
-            # Validate without retaining any raw provider payload.
             probe = ExecutionSurfaceBinding(
                 mission_key="msn_" + "00" * 32,
                 effect_id="eff_" + "00" * 32,
                 surface=surface,
                 binding_reference=binding_reference,
-                bound_at_utc=__import__("datetime").datetime(
-                    2000,
-                    1,
-                    1,
-                    tzinfo=__import__("datetime").timezone.utc,
-                ),
+                bound_at_utc=datetime(2000, 1, 1, tzinfo=timezone.utc),
             )
         except ExecutionSurfaceBindingError as error:
             raise ExecutionSurfaceGateError(error.code) from None
