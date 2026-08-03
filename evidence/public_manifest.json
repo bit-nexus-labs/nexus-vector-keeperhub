@@ -1,7 +1,7 @@
 {
   "schema": "nexus-vector.public-evidence.v1",
   "classification": "SANITIZED_PUBLIC",
-  "generated_at_utc": "2026-08-03T00:56:15Z",
+  "generated_at_utc": "2026-08-03T05:57:00Z",
   "project": {
     "name": "Nexus Vector — Mission-Safe Agent Payments",
     "promise": "The agent can retry. The money cannot duplicate.",
@@ -49,7 +49,7 @@
       "claim_id": "static_replay_ui",
       "status": "OFFLINE_VERIFIED",
       "merge_commit": "d10eb0e3b9fb6decb1ea2072e34b577dd52691b4",
-      "evidence": "Dependency-free Mission Resilience Lab, Treasury Gate and Evidence views render deterministic local classifications only; exact current bytes are bound by the artifact digests below."
+      "evidence": "Dependency-free Mission Resilience Lab, presentation-consistency layer, Treasury Gate and Evidence views render deterministic local classifications only; exact current bytes are bound by the artifact digests below."
     },
     {
       "claim_id": "keeperhub_contract_review",
@@ -97,7 +97,7 @@
   "artifacts": [
     {
       "path": "frontend/index.html",
-      "sha256": "fc7080124f0f828463886d27f066dcb5965d7350c695acb81ca461117a6c0a60",
+      "sha256": "29e3ff8184946a097220ecc75061b30703ae977f27ca2bd8572c7d4c302e4ea4",
       "classification": "PUBLIC_STATIC_UI",
       "is_transaction_evidence": false
     },
@@ -108,8 +108,20 @@
       "is_transaction_evidence": false
     },
     {
+      "path": "frontend/polish.css",
+      "sha256": "17acf2a5bd1bc26d514e41cee9322d102990a1c6c6658a433d2376b1d9f78894",
+      "classification": "PUBLIC_STATIC_UI",
+      "is_transaction_evidence": false
+    },
+    {
       "path": "frontend/app.js",
       "sha256": "7346d400f8bd832592f88f11d2cdb5fe363b583969a5c7702e44cb87e0fcf117",
+      "classification": "PUBLIC_STATIC_UI",
+      "is_transaction_evidence": false
+    },
+    {
+      "path": "frontend/presentation-consistency.js",
+      "sha256": "b853960c45e043492a0621d5c2d9db64ab7bfadcd6b310769a30e655b7985eda",
       "classification": "PUBLIC_STATIC_UI",
       "is_transaction_evidence": false
     },

@@ -30,8 +30,10 @@ class MissionResilienceLabUITests(unittest.TestCase):
     def setUp(self) -> None:
         self.index = (FRONTEND / "index.html").read_text(encoding="utf-8")
         self.css = (FRONTEND / "styles.css").read_text(encoding="utf-8")
+        self.polish_css = (FRONTEND / "polish.css").read_text(encoding="utf-8")
         self.app = (FRONTEND / "app.js").read_text(encoding="utf-8")
-        self.combined = "\n".join((self.index, self.css, self.app))
+        self.consistency = (FRONTEND / "presentation-consistency.js").read_text(encoding="utf-8")
+        self.combined = "\n".join((self.index, self.css, self.polish_css, self.app, self.consistency))
 
     def test_dynamic_mission_builder_and_recovery_controls_exist(self) -> None:
         inventory = _MissionLabInventory()
@@ -50,6 +52,10 @@ class MissionResilienceLabUITests(unittest.TestCase):
             "technical-table",
             "verified-proof",
             "treasury-decision",
+            "mutation-policy",
+            "unsafe-outcome-card",
+            "gate-evidence-card",
+            "gate-evidence-icon",
         }
         self.assertTrue(required.issubset(inventory.ids), required - inventory.ids)
         self.assertEqual(
@@ -102,7 +108,8 @@ class MissionResilienceLabUITests(unittest.TestCase):
         self.assertIn('setAttribute("aria-selected"', self.app)
         self.assertIn("element.textContent", self.app)
         self.assertIn("replaceChildren", self.app)
-        self.assertNotIn("innerHTML", self.app)
+        self.assertIn("element.textContent", self.consistency)
+        self.assertNotIn("innerHTML", self.combined)
         self.assertNotRegex(self.index, r"<(?:audio|video)\b")
         self.assertNotRegex(self.index, r'type="range"')
 
@@ -125,21 +132,37 @@ class MissionResilienceLabUITests(unittest.TestCase):
         self.assertIn("duplicate economic authority denied", self.app)
         self.assertIn("processEpoch += 1", self.app)
 
-    def test_hero_is_reduced_without_external_font_dependency(self) -> None:
-        hero_block = re.search(r"\.hero h1\s*\{(?P<body>.*?)\}", self.css, re.S)
-        self.assertIsNotNone(hero_block)
-        assert hero_block is not None
-        body = hero_block.group("body")
-        self.assertIn("clamp(2.65rem, 5vw, 4.65rem)", body)
-        self.assertIn("letter-spacing: -0.048em", body)
-        self.assertNotIn("6rem", body)
+    def test_neutral_state_never_implies_duplicate_exposure_or_execution_authority(self) -> None:
+        self.assertIn('<strong id="unsafe-total">NOT EVALUATED</strong>', self.index)
+        self.assertIn('<strong id="safe-total">PERSIST FIRST</strong>', self.index)
+        self.assertIn("30 awaiting persist · 0 execution authority", self.index)
+        self.assertIn("editable until persist", self.index)
+        self.assertIn("Draft / awaiting persist", self.index)
+        self.assertIn("persist before eligibility", self.index)
+        self.assertIn('unsafeCard.classList.toggle("is-neutral", !scenarioActive)', self.consistency)
+        self.assertIn('missionLocked ? "new version required" : "editable until persist"', self.consistency)
+        self.assertIn('missionLocked ? "Missing / eligible" : "Draft / awaiting persist"', self.consistency)
+        self.assertIn('missionLocked ? "immutable demo units" : "configured demo units"', self.consistency)
+
+    def test_evidence_icon_tracks_actual_evidence_state(self) -> None:
+        self.assertIn('<span id="gate-evidence-icon" class="gate-icon">✓</span>', self.index)
+        self.assertIn('classList.toggle("gate-caution", evidenceWarning)', self.consistency)
+        self.assertIn('evidenceWarning ? "!" : "✓"', self.consistency)
+        self.assertIn('evidenceText.includes("require")', self.consistency)
+        self.assertIn('evidenceText.includes("blocked")', self.consistency)
+
+    def test_hero_and_cta_polish_do_not_add_external_font_dependency(self) -> None:
+        self.assertIn("clamp(2.5rem, 4.6vw, 4.2rem)", self.polish_css)
+        self.assertIn("letter-spacing: -0.045em", self.polish_css)
+        self.assertIn(".primary-action:visited", self.polish_css)
+        self.assertIn("color: var(--text)", self.polish_css)
         self.assertIn("font-family: Inter", self.css)
         self.assertIn("Sandbox checksum", self.index)
         self.assertIn("lab-checksum:", self.app)
         self.assertIn("Simulated requests", self.index)
         self.assertIn("Unique authorities", self.index)
         self.assertNotIn('Mission identity</span><strong id="mission-fingerprint', self.index)
-        self.assertNotIn("@import", self.css)
+        self.assertNotIn("@import", self.combined)
         self.assertNotRegex(self.index, r"https?://")
 
     def test_no_unsupported_runtime_or_financial_claims(self) -> None:
@@ -163,6 +186,7 @@ class MissionResilienceLabUITests(unittest.TestCase):
         self.assertIn(".flight-recorder", self.css)
         self.assertIn(".treasury-gate", self.css)
         self.assertIn("@media (max-width: 620px)", self.css)
+        self.assertIn("@media (max-width: 620px)", self.polish_css)
         self.assertIn("prefers-reduced-motion", self.css)
         self.assertIn('matchMedia("(prefers-reduced-motion: reduce)")', self.app)
         self.assertIn('behavior: prefersReducedMotion ? "auto" : "smooth"', self.app)
