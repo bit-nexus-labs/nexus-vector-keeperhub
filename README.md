@@ -66,9 +66,9 @@ Business Mission
 The dependency-free public product provides a local, non-executing resilience sandbox:
 
 - dynamic Mission Builder with **1–10 independent effects**;
-- single-effect, unequal-recovery, four-way batch, and mixed-state presets;
+- single-effect, unequal-recovery, four-way batch, and five-way batch presets;
 - editable recipient aliases and integer demo-unit amounts before Mission persistence;
-- immutable Mission fingerprint and budget-partition checks after persistence;
+- deterministic local sandbox checksum and budget-partition checks after persistence;
 - controlled lost-response, duplicate-submit, process-restart, payload-mutation, and retry-all scenarios;
 - per-effect `SKIP_VERIFIED`, `EXECUTE_MISSING`, `RECONCILE_REQUIRED`, and `MANUAL_REVIEW` decisions;
 - safe-versus-counterfactual treasury comparison;
@@ -76,6 +76,8 @@ The dependency-free public product provides a local, non-executing resilience sa
 - Treasury Gate, Mission state-machine, and sanitized Evidence views;
 - an explicit `PENDING_RUNTIME` boundary for future verified testnet evidence;
 - responsive and reduced-motion behavior without external runtime dependencies.
+
+The sandbox checksum is a compact local UI consistency marker, not the canonical cryptographic Mission identity used by the runtime core.
 
 The browser contains no KeeperHub credential, wallet capability, signing path, network transport, transaction broadcast, or hidden storage. All sandbox outcomes are deterministic local classifications.
 
