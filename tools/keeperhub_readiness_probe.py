@@ -112,6 +112,20 @@ def _sanitize_balance_payload(value: Any) -> Any:
     return sanitize(value)
 
 
+def _transport_stop(error: KeeperHubHttpTransportError) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "probe": "KEEPERHUB_READINESS_V1",
+        "status": "STOP",
+        "reason": error.code,
+        "retry": "FORBIDDEN",
+    }
+    if error.http_status is not None:
+        result["http_status"] = error.http_status
+    if error.provider_error_code is not None:
+        result["provider_error_code"] = error.provider_error_code
+    return result
+
+
 def run_probe(client: ReadinessClient) -> tuple[int, dict[str, Any]]:
     """Run each approved GET at most once and return sanitized evidence."""
 
@@ -187,7 +201,10 @@ def main() -> int:
         transport = KeeperHubHttpTransport(api_key)
         client = KeeperHubReadOnlyRuntimeClient(transport)
         exit_code, result = run_probe(client)
-    except (KeeperHubHttpTransportError, KeeperHubSimulationRuntimeError) as error:
+    except KeeperHubHttpTransportError as error:
+        exit_code = 2
+        result = _transport_stop(error)
+    except KeeperHubSimulationRuntimeError as error:
         exit_code = 2
         result = {
             "probe": "KEEPERHUB_READINESS_V1",

@@ -24,18 +24,36 @@ _MAX_RESPONSE_BYTES = 1_048_576
 _MAX_API_KEY_LENGTH = 512
 _MAX_TIMEOUT_SECONDS = 60
 _EVM_ADDRESS_PATTERN = re.compile(r"0x[0-9a-fA-F]{40}")
+_PROVIDER_ERROR_CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,63}")
 
 
 class KeeperHubHttpTransportError(RuntimeError):
     """Machine-classifiable transport failure without secret or body echo."""
 
-    def __init__(self, code: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        *,
+        http_status: int | None = None,
+        provider_error_code: str | None = None,
+    ) -> None:
         self.code = code
+        self.http_status = http_status
+        self.provider_error_code = provider_error_code
         super().__init__(code)
 
 
-def _fail(code: str) -> None:
-    raise KeeperHubHttpTransportError(code)
+def _fail(
+    code: str,
+    *,
+    http_status: int | None = None,
+    provider_error_code: str | None = None,
+) -> None:
+    raise KeeperHubHttpTransportError(
+        code,
+        http_status=http_status,
+        provider_error_code=provider_error_code,
+    )
 
 
 def _required_text(value: Any, code: str, *, maximum: int = 256) -> str:
@@ -73,6 +91,39 @@ def _canonical_address(value: Any) -> str:
     if not isinstance(value, str) or _EVM_ADDRESS_PATTERN.fullmatch(value) is None:
         _fail("INVALID_WALLET_ADDRESS")
     return value.casefold()
+
+
+def _safe_provider_error_code(payload: Any) -> str | None:
+    if not isinstance(payload, Mapping):
+        return None
+    candidate = payload.get("error")
+    if (
+        isinstance(candidate, str)
+        and _PROVIDER_ERROR_CODE_PATTERN.fullmatch(candidate) is not None
+    ):
+        return candidate
+    return None
+
+
+def _http_failure_code(surface: str, status: int) -> str:
+    suffix = {
+        401: "AUTHENTICATION_REJECTED",
+        403: "SCOPE_REJECTED",
+        404: "ENDPOINT_NOT_FOUND",
+        409: "CONFLICT",
+        429: "RATE_LIMITED",
+    }.get(status)
+    if suffix is None:
+        suffix = "PROVIDER_UNAVAILABLE" if 500 <= status <= 599 else "HTTP_REJECTED"
+    return f"{surface}_{suffix}"
+
+
+def _fail_http(surface: str, status: int, payload: Any) -> None:
+    _fail(
+        _http_failure_code(surface, status),
+        http_status=status,
+        provider_error_code=_safe_provider_error_code(payload),
+    )
 
 
 class _NoRedirectHandler(HTTPRedirectHandler):
@@ -199,8 +250,10 @@ class KeeperHubHttpTransport:
             method="GET",
             path="/user/wallet",
         )
-        if status != 200 or not isinstance(payload, Mapping):
-            _fail("WALLET_READINESS_UNKNOWN")
+        if status != 200:
+            _fail_http("WALLET_READINESS", status, payload)
+        if not isinstance(payload, Mapping):
+            _fail("INVALID_WALLET_RESPONSE")
         has_wallet = payload.get("hasWallet")
         if type(has_wallet) is not bool:
             _fail("INVALID_WALLET_RESPONSE")
@@ -225,13 +278,26 @@ class KeeperHubHttpTransport:
             organization_id=organization_id,
         )
 
+    def get_wallet_balances(self) -> Mapping[str, Any] | list[Any]:
+        status, payload, _ = self._json_request(
+            method="GET",
+            path="/user/wallet/balances",
+        )
+        if status != 200:
+            _fail_http("WALLET_BALANCES", status, payload)
+        if not isinstance(payload, (Mapping, list)):
+            _fail("INVALID_WALLET_BALANCES_RESPONSE")
+        return payload
+
     def list_chains(self) -> tuple[KeeperHubChain, ...]:
         status, payload, _ = self._json_request(
             method="GET",
             path="/chains",
         )
-        if status != 200 or not isinstance(payload, list):
-            _fail("CHAIN_CATALOG_UNKNOWN")
+        if status != 200:
+            _fail_http("CHAIN_CATALOG", status, payload)
+        if not isinstance(payload, list):
+            _fail("INVALID_CHAIN_RESPONSE")
         chains: list[KeeperHubChain] = []
         seen_ids: set[int] = set()
         for item in payload:

@@ -250,16 +250,18 @@ class KeeperHubReadOnlyRuntimeClientTests(unittest.TestCase):
 
     def test_unknown_balance_status_or_envelope_fails_closed(self):
         cases = (
-            (403, {"error": "insufficient_scope"}, "WALLET_BALANCES_UNKNOWN"),
+            (403, {"error": "insufficient_scope"}, "WALLET_BALANCES_SCOPE_REJECTED"),
             (200, "unexpected", "INVALID_WALLET_BALANCES_RESPONSE"),
         )
         for status, payload, expected in cases:
             with self.subTest(status=status):
                 transport, opener = runtime([FakeResponse(status, payload)])
                 client = KeeperHubReadOnlyRuntimeClient(transport)
-                with self.assertRaises(KeeperHubSimulationRuntimeError) as caught:
+                with self.assertRaises(KeeperHubHttpTransportError) as caught:
                     client.get_wallet_balances()
                 self.assertEqual(caught.exception.code, expected)
+                if status != 200:
+                    self.assertEqual(caught.exception.http_status, status)
                 self.assertEqual(len(opener.calls), 1)
 
 
