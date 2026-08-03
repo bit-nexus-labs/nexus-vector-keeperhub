@@ -75,6 +75,43 @@ _EXECUTION_SURFACE = "DIRECT_EXECUTION"
 _EVM_ADDRESS = re.compile(r"0x[0-9a-fA-F]{40}")
 _SAFE_DIGITS = re.compile(r"[0-9]{1,32}")
 
+# Only provider codes already observed and reviewed may cross the sanitized
+# operator boundary. Unknown strings, messages, nested objects, and headers are
+# intentionally discarded.
+_SAFE_PROVIDER_ERROR_CODES = frozenset({"insufficient_scope"})
+
+_PREPARE_INPUT_CORRECTABLE = frozenset(
+    {
+        "LOCAL_RECIPIENT_NOT_SET",
+        "INVALID_RECIPIENT_ADDRESS",
+    }
+)
+_EXECUTE_INPUT_CORRECTABLE = frozenset(
+    {
+        "LOCAL_API_KEY_NOT_SET",
+        "LOCAL_SIMULATION_APPROVAL_NOT_SET",
+        "INVALID_LOCAL_API_KEY",
+        "SIMULATION_APPROVAL_MISMATCH",
+    }
+)
+_LOCAL_STATE_REVIEW_REQUIRED = frozenset(
+    {
+        "ACTION_SHEET_ALREADY_EXISTS",
+        "ACTION_SHEET_NOT_FOUND",
+        "ACTION_SHEET_READ_FAILED",
+        "ACTION_SHEET_TOO_LARGE",
+        "ACTION_SHEET_CORRUPT",
+        "ACTION_SHEET_FIELD_MISMATCH",
+        "ACTION_SHEET_SCHEMA_MISMATCH",
+        "ACTION_SHEET_PURPOSE_MISMATCH",
+        "ACTION_SHEET_SURFACE_MISMATCH",
+        "ACTION_SHEET_BUDGET_MISMATCH",
+        "INVALID_ACTION_SHEET_TIMESTAMP",
+        "ACTION_SHEET_FINGERPRINT_MISMATCH",
+        "MISSION_FINGERPRINT_MISMATCH",
+    }
+)
+
 
 class OneShotSimulationError(RuntimeError):
     """Machine-classifiable local operator failure without raw-value echo."""
@@ -366,6 +403,24 @@ def _safe_scalar(value: Any) -> str | int | bool | None:
     return None
 
 
+def _safe_provider_error_code(value: Any) -> str | None:
+    if isinstance(value, str) and value in _SAFE_PROVIDER_ERROR_CODES:
+        return value
+    return None
+
+
+def _sanitize_transport_error(
+    error: KeeperHubHttpTransportError,
+) -> dict[str, Any] | None:
+    summary: dict[str, Any] = {}
+    if type(error.http_status) is int and 100 <= error.http_status <= 599:
+        summary["http_status"] = error.http_status
+    provider_code = _safe_provider_error_code(error.provider_error_code)
+    if provider_code is not None:
+        summary["provider_error_code"] = provider_code
+    return summary or None
+
+
 def _sanitize_response(response: KeeperHubTransportResponse) -> dict[str, Any]:
     body = response.body
     result: dict[str, Any] = {"http_status": response.status_code}
@@ -385,6 +440,9 @@ def _sanitize_response(response: KeeperHubTransportResponse) -> dict[str, Any]:
             ):
                 continue
             result[target] = safe
+    provider_code = _safe_provider_error_code(body.get("error"))
+    if provider_code is not None:
+        result["provider_error_code"] = provider_code
     for source, target in (
         ("from", "from_masked"),
         ("to", "to_masked"),
@@ -413,10 +471,14 @@ class _CapturingSimulationTransport:
         self.calls += 1
         if self.calls != 1:
             _fail("MULTIPLE_SIMULATION_CALLS_BLOCKED")
-        response = self._delegate.post_transfer(
-            body,
-            idempotency_key=idempotency_key,
-        )
+        try:
+            response = self._delegate.post_transfer(
+                body,
+                idempotency_key=idempotency_key,
+            )
+        except KeeperHubHttpTransportError as error:
+            self.summary = _sanitize_transport_error(error)
+            raise
         self.summary = _sanitize_response(response)
         return response
 
@@ -579,6 +641,45 @@ def status_action_sheet(state_root: Path) -> dict[str, Any]:
     }
 
 
+def _local_failure_result(command: str, code: str) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "probe": _PROBE_NAME,
+        "status": "STOP",
+        "reason": code,
+        "broadcast_authorized": False,
+        "funds_moved": False,
+    }
+    if command == "prepare" and code in _PREPARE_INPUT_CORRECTABLE:
+        result.update(
+            {
+                "retry": "LOCAL_INPUT_CORRECTION_ALLOWED",
+                "network_calls": 0,
+                "next_action": "CORRECT_LOCAL_INPUT_AND_RERUN_PREPARE",
+            }
+        )
+    elif command == "execute" and code in _EXECUTE_INPUT_CORRECTABLE:
+        result.update(
+            {
+                "retry": "LOCAL_INPUT_CORRECTION_ALLOWED",
+                "network_calls": 0,
+                "next_action": "CORRECT_LOCAL_INPUT_AND_RERUN_EXECUTE",
+            }
+        )
+    elif code in _LOCAL_STATE_REVIEW_REQUIRED or (
+        command != "prepare" and code == "INVALID_RECIPIENT_ADDRESS"
+    ):
+        result.update(
+            {
+                "retry": "MANUAL_LOCAL_RECOVERY_REQUIRED",
+                "network_calls": 0,
+                "next_action": "PRESERVE_LOCAL_STATE_AND_REVIEW",
+            }
+        )
+    else:
+        result["retry"] = "FORBIDDEN"
+    return result
+
+
 def _print(value: Mapping[str, Any]) -> None:
     print(json.dumps(value, ensure_ascii=False, sort_keys=True))
 
@@ -615,14 +716,7 @@ def main(argv: list[str] | None = None) -> int:
             result = status_action_sheet(root)
             exit_code = 0
     except OneShotSimulationError as error:
-        result = {
-            "probe": _PROBE_NAME,
-            "status": "STOP",
-            "reason": error.code,
-            "retry": "FORBIDDEN",
-            "broadcast_authorized": False,
-            "funds_moved": False,
-        }
+        result = _local_failure_result(args.command, error.code)
         exit_code = 2
     except Exception:
         result = {
