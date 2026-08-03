@@ -162,12 +162,4 @@ class KeeperHubReadOnlyRuntimeClient:
         return self._transport.list_chains()
 
     def get_wallet_balances(self) -> Mapping[str, Any] | list[Any]:
-        status, payload, _ = self._transport._json_request(
-            method="GET",
-            path="/user/wallet/balances",
-        )
-        if status != 200:
-            _fail("WALLET_BALANCES_UNKNOWN")
-        if not isinstance(payload, (Mapping, list)):
-            _fail("INVALID_WALLET_BALANCES_RESPONSE")
-        return payload
+        return self._transport.get_wallet_balances()
