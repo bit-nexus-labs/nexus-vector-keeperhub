@@ -32,7 +32,7 @@ This file distinguishes implemented code from runtime evidence. `OFFLINE VERIFIE
 | KeeperHub testnet broadcast | WAITING FOR ACTION-SPECIFIC APPROVAL | one-time broadcast approval and `--approve-testnet-write` required |
 | Independent onchain verification | WAITING FOR TRANSACTION | exact ERC-20 event and confirmations required |
 | Public live evidence | WAITING FOR TRANSACTION | explorer link and sanitized evidence update required |
-| Mission Resilience Lab | DEPLOYED / REPLAY | public product is not live transaction evidence; latest deployment remains separately verified |
+| Mission Resilience Lab | MERGED / REPLAY / DEPLOY VERIFY PENDING | PR #32 bytes are on `main`; push-run, clean-browser behavior, and deployed hashes remain separate verification gates |
 | Public evidence verifier | DONE | runtime false claims fail closed |
 | Demo video | READY FOR RECORDING | runtime scene depends on real evidence or must be labeled pending |
 | Submission draft | READY / LINKS PENDING | video and explorer links remain external gates; deployed frontend link requires final clean-browser verification |
@@ -143,7 +143,7 @@ Safe public claims:
 
 - the offline Mission, persistence, attempt, reconciliation, continuation, provider-reference, adapter, status, transport, UI, and evidence layers are implemented and tested;
 - KeeperHub integration follows the reviewed simulation-first and idempotent Direct Execution contract;
-- the Mission Resilience Lab is a deployed replay product with no transaction capability;
+- the Mission Resilience Lab is a replay product with no transaction capability; PR #32 deployment verification is still pending;
 - no real KeeperHub transaction is claimed yet;
 - mainnet is blocked.
 
