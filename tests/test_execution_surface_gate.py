@@ -42,9 +42,13 @@ class CountingPort:
         return ExecutionPortResult(ExecutionPortOutcome.ACCEPTED)
 
 
-class InvalidPort:
+class RaisingPort:
+    def __init__(self):
+        self.calls = []
+
     def execute(self, attempt):
-        return object()
+        self.calls.append(attempt)
+        raise RuntimeError("provider ambiguity")
 
 
 def in_flight_attempt():
@@ -181,26 +185,28 @@ class ExecutionSurfaceGateTests(unittest.TestCase):
         self.store.initialize()
         self.assertIsNone(self.store.get(EFFECT_ID))
 
-    def test_invalid_delegate_result_fails_after_binding_without_fallback(self):
+    def test_delegate_ambiguity_keeps_binding_and_blocks_fallback(self):
         attempt = in_flight_attempt()
-        with self.assertRaises(ExecutionSurfaceGateError) as caught:
+        direct = RaisingPort()
+        with self.assertRaisesRegex(RuntimeError, "provider ambiguity"):
             self.gate(
-                InvalidPort(),
+                direct,
                 ExecutionSurface.DIRECT_EXECUTION,
                 "direct-binding-001",
             ).execute(attempt)
-        self.assertEqual(caught.exception.code, "INVALID_PORT_RESULT")
+        self.assertEqual(direct.calls, [attempt])
         self.assertEqual(
             self.store.get(EFFECT_ID).surface,
             ExecutionSurface.DIRECT_EXECUTION,
         )
         workflow = CountingPort()
-        with self.assertRaises(ExecutionSurfaceGateError):
+        with self.assertRaises(ExecutionSurfaceGateError) as caught:
             self.gate(
                 workflow,
                 ExecutionSurface.WORKFLOW,
                 "workflow-binding-001",
             ).execute(attempt)
+        self.assertEqual(caught.exception.code, "SURFACE_BINDING_CONFLICT")
         self.assertEqual(workflow.calls, [])
 
 
