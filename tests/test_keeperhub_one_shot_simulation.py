@@ -142,6 +142,32 @@ class OneShotKeeperHubSimulationTests(unittest.TestCase):
             )
             self.assertFalse((root / "keeperhub_authorizations.sqlite3").exists())
 
+    def test_malformed_execute_key_is_correctable_before_network(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            preview = RUNNER.prepare_action_sheet(RECIPIENT, root)
+            output = io.StringIO()
+            with patch.object(RUNNER, "_state_root", return_value=root):
+                with patch.dict(
+                    os.environ,
+                    {
+                        RUNNER._API_KEY_ENV: "kh_bad key",
+                        RUNNER._APPROVAL_ENV: preview["approval_challenge"],
+                    },
+                    clear=False,
+                ):
+                    with redirect_stdout(output):
+                        exit_code = RUNNER.main(["execute"])
+            result = json.loads(output.getvalue())
+            self.assertEqual(exit_code, 2)
+            self.assertEqual(result["reason"], "INVALID_LOCAL_API_KEY")
+            self.assertEqual(
+                result["retry"],
+                "LOCAL_INPUT_CORRECTION_ALLOWED",
+            )
+            self.assertEqual(result["network_calls"], 0)
+            self.assertFalse((root / "keeperhub_authorizations.sqlite3").exists())
+
     def test_corrupt_action_sheet_requires_manual_local_review(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
