@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Protocol
 
-from nexus_vector.application.execution_dispatch import (
-    ExecutionPort,
-    ExecutionPortResult,
-)
 from nexus_vector.domain.execution_attempts import (
     ExecutionAttemptRecord,
     ExecutionAttemptState,
@@ -24,6 +20,10 @@ from nexus_vector.persistence.sqlite_execution_surface_binding_store import (
 )
 
 
+class ExecutionSurfaceDelegate(Protocol):
+    def execute(self, attempt: ExecutionAttemptRecord) -> Any: ...
+
+
 class ExecutionSurfaceGateError(RuntimeError):
     def __init__(self, code: str) -> None:
         self.code = code
@@ -35,11 +35,11 @@ def _fail(code: str) -> None:
 
 
 class SurfaceBoundExecutionPort:
-    """Durably select a provider surface before delegating one mutating call."""
+    """Durably select a provider surface before transparently delegating."""
 
     def __init__(
         self,
-        delegate: ExecutionPort,
+        delegate: ExecutionSurfaceDelegate,
         binding_store: SQLiteExecutionSurfaceBindingStore,
         surface: ExecutionSurface,
         binding_reference: str,
@@ -65,7 +65,7 @@ class SurfaceBoundExecutionPort:
         self._surface = probe.surface
         self._binding_reference = probe.binding_reference
 
-    def execute(self, attempt: ExecutionAttemptRecord) -> ExecutionPortResult:
+    def execute(self, attempt: ExecutionAttemptRecord) -> Any:
         if not isinstance(attempt, ExecutionAttemptRecord):
             _fail("INVALID_EXECUTION_ATTEMPT")
         if attempt.state is not ExecutionAttemptState.IN_FLIGHT:
@@ -93,7 +93,7 @@ class SurfaceBoundExecutionPort:
         ):
             _fail("SURFACE_BINDING_MISMATCH")
 
-        result: Any = self._delegate.execute(attempt)
-        if not isinstance(result, ExecutionPortResult):
-            _fail("INVALID_PORT_RESULT")
-        return result
+        # The delegate's owning wrapper validates its own result contract.
+        # Returning it unchanged preserves ProviderExecutionResult so
+        # ProviderReferencePersistingPort can durably store executionId.
+        return self._delegate.execute(attempt)
