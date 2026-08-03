@@ -6,6 +6,7 @@
   <meta name="description" content="Stress-test autonomous payment missions under retries, lost responses and restarts.">
   <title>Nexus Vector — Mission Resilience Lab</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="polish.css">
 </head>
 <body>
   <div class="grid-field" aria-hidden="true"></div>
@@ -107,7 +108,7 @@
         <div class="mission-integrity">
           <div><span>Sandbox checksum</span><strong id="mission-fingerprint">draft</strong></div>
           <div><span>Budget invariant</span><strong id="budget-invariant">30 / 30 balanced</strong></div>
-          <div><span>Mutation policy</span><strong>new version required</strong></div>
+          <div><span>Mutation policy</span><strong id="mutation-policy">editable until persist</strong></div>
         </div>
       </section>
 
@@ -164,13 +165,13 @@
 
         <div class="mission-summary">
           <article class="metric-card">
-            <span>Mission total</span><strong id="mission-total">30</strong><small>immutable demo units</small>
+            <span>Mission total</span><strong id="mission-total">30</strong><small id="mission-total-caption">configured demo units</small>
           </article>
           <article class="metric-card safe">
             <span>Verified / skip</span><strong id="amount-skipped">0</strong><small>already completed</small>
           </article>
           <article class="metric-card ready">
-            <span>Missing / eligible</span><strong id="amount-executable">30</strong><small>policy-gated continuation</small>
+            <span id="executable-label">Draft / awaiting persist</span><strong id="amount-executable">30</strong><small id="executable-caption">persist before eligibility</small>
           </article>
           <article class="metric-card warning">
             <span>Unknown / reconcile</span><strong id="amount-unresolved">0</strong><small>never blind retry</small>
@@ -189,18 +190,18 @@
         <div id="effect-cards" class="effect-grid" aria-label="Effect continuation decisions"></div>
 
         <div class="outcome-comparison">
-          <article class="outcome-card unsafe-outcome">
+          <article id="unsafe-outcome-card" class="outcome-card unsafe-outcome is-neutral">
             <p class="section-label">Counterfactual route</p>
             <h3>Blind retry exposure</h3>
-            <strong id="unsafe-total">30 / 30</strong>
-            <span id="unsafe-detail">No failure selected</span>
+            <strong id="unsafe-total">NOT EVALUATED</strong>
+            <span id="unsafe-detail">Persist the Mission, then select a failure scenario</span>
             <small>Projection only. Never executed by this sandbox.</small>
           </article>
           <article class="outcome-card safe-outcome">
             <p class="section-label">Nexus Vector route</p>
             <h3>Deterministic continuation</h3>
-            <strong id="safe-total">30 / 30</strong>
-            <span id="safe-detail">All effects remain eligible</span>
+            <strong id="safe-total">PERSIST FIRST</strong>
+            <span id="safe-detail">30 awaiting persist · 0 execution authority</span>
             <small>Classification only. No authority to move funds.</small>
           </article>
         </div>
@@ -268,7 +269,7 @@
           <div><span class="gate-icon">✓</span><p><strong>Mission identity</strong><small id="gate-identity">draft effects recognized</small></p></div>
           <div><span class="gate-icon">✓</span><p><strong>Immutable budget</strong><small id="gate-budget">partition equals Mission total</small></p></div>
           <div><span class="gate-icon">✓</span><p><strong>Durable attempt</strong><small id="gate-attempt">no provider boundary entered</small></p></div>
-          <div class="gate-caution"><span class="gate-icon">!</span><p><strong>Evidence policy</strong><small id="gate-evidence">no unresolved evidence</small></p></div>
+          <div id="gate-evidence-card"><span id="gate-evidence-icon" class="gate-icon">✓</span><p><strong>Evidence policy</strong><small id="gate-evidence">no unresolved evidence</small></p></div>
           <div><span class="gate-icon">✓</span><p><strong>Continuation authority</strong><small id="gate-continuation">duplicate authority denied</small></p></div>
         </div>
         <div class="treasury-decision">
@@ -333,5 +334,6 @@
 
   <script src="replay/mission-safe-30.js"></script>
   <script src="app.js"></script>
+  <script src="presentation-consistency.js"></script>
 </body>
 </html>
