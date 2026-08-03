@@ -20,6 +20,7 @@ _SCHEMA_VERSION = 1
 _BUSY_TIMEOUT_MILLISECONDS = 5_000
 _JOURNAL_MODE_RETRY_ATTEMPTS = 10
 _JOURNAL_MODE_RETRY_DELAY_SECONDS = 0.02
+_EFFECT_ID_PATTERN = re.compile(r"eff_[0-9a-f]{64}")
 _T = TypeVar("_T")
 
 _TABLE_SQL = """
@@ -274,7 +275,10 @@ class SQLiteExecutionSurfaceBindingStore:
         return self._write(operation)
 
     def get(self, effect_id: str) -> ExecutionSurfaceBinding | None:
-        if not isinstance(effect_id, str):
+        if (
+            not isinstance(effect_id, str)
+            or _EFFECT_ID_PATTERN.fullmatch(effect_id) is None
+        ):
             _fail("INVALID_EFFECT_ID")
         return self._read(
             lambda connection: self._load_by_effect(connection, effect_id)
