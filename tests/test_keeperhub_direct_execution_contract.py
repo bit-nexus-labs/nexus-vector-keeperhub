@@ -58,7 +58,10 @@ class KeeperHubDirectExecutionContractTests(unittest.TestCase):
             "idempotency_in_progress",
             "24 hours",
             "A new key must never be generated",
-            "maximum_broadcasts: 1",
+            "maximum_simulation_posts: 1",
+            "maximum_broadcast_posts: 1",
+            "maximum_mutating_calls: 1",
+            "maximum_new_request_keys_after_ambiguity: 0",
         ):
             self.assertIn(phrase, self.all_text)
 
