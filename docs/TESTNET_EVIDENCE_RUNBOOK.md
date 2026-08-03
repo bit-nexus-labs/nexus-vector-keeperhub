@@ -122,7 +122,7 @@ new request keys after ambiguity = 0
 status GETs = bounded and poll-hint compliant
 ```
 
-Do not collapse simulation and broadcast into a misleading single `maximum_provider_calls` field.
+Do not collapse simulation and broadcast into one generic provider-call limit.
 
 ## Stop conditions
 
