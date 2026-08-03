@@ -90,7 +90,7 @@
           <button class="preset-button" type="button" data-preset="single">Single effect</button>
           <button class="preset-button is-active" type="button" data-preset="unequal">Unequal recovery</button>
           <button class="preset-button" type="button" data-preset="batch">Four-way batch</button>
-          <button class="preset-button" type="button" data-preset="mixed">Mixed-state mission</button>
+          <button class="preset-button" type="button" data-preset="mixed">Five-way batch</button>
         </div>
 
         <div class="builder-head" aria-hidden="true">
@@ -105,7 +105,7 @@
         </div>
 
         <div class="mission-integrity">
-          <div><span>Mission identity</span><strong id="mission-fingerprint">draft</strong></div>
+          <div><span>Sandbox checksum</span><strong id="mission-fingerprint">draft</strong></div>
           <div><span>Budget invariant</span><strong id="budget-invariant">30 / 30 balanced</strong></div>
           <div><span>Mutation policy</span><strong>new version required</strong></div>
         </div>
@@ -181,7 +181,7 @@
           <div>
             <p class="section-label">Execution Doctor</p>
             <h2 id="doctor-title">Safe next action: PERSIST MISSION</h2>
-            <p id="doctor-summary">Create an immutable Mission identity before any effect can cross a provider boundary.</p>
+            <p id="doctor-summary">Persist the Mission before any effect can cross a provider boundary.</p>
           </div>
           <span id="doctor-action" class="action-pill">PERSIST</span>
         </div>
@@ -213,8 +213,8 @@
           <p>The Mission, canonical effects, attempts and provider references remain distinct records. Ambiguity becomes reconciliation—not permission to generate a new economic effect.</p>
           <div class="black-box-metrics">
             <span><small>Process epoch</small><strong id="process-epoch">1</strong></span>
-            <span><small>Provider requests</small><strong id="provider-request-count">0</strong></span>
-            <span><small>Unique executions</small><strong id="unique-execution-count">0</strong></span>
+            <span><small>Simulated requests</small><strong id="provider-request-count">0</strong></span>
+            <span><small>Unique authorities</small><strong id="unique-execution-count">0</strong></span>
             <span><small>Duplicate effects</small><strong id="duplicate-effect-count">0</strong></span>
           </div>
         </div>
