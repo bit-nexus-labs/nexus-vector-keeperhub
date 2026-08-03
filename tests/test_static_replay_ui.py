@@ -31,12 +31,19 @@ class StaticReplayUITests(unittest.TestCase):
     def setUp(self) -> None:
         self.index = (FRONTEND / "index.html").read_text(encoding="utf-8")
         self.css = (FRONTEND / "styles.css").read_text(encoding="utf-8")
+        self.polish_css = (FRONTEND / "polish.css").read_text(encoding="utf-8")
         self.app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+        self.consistency = (FRONTEND / "presentation-consistency.js").read_text(encoding="utf-8")
         self.replay = (FRONTEND / "replay" / "mission-safe-30.js").read_text(encoding="utf-8")
 
     def test_all_declared_assets_are_local_and_exist(self) -> None:
         inventory = _HTMLInventory()
         inventory.feed(self.index)
+        self.assertEqual(inventory.stylesheets, ["styles.css", "polish.css"])
+        self.assertEqual(
+            inventory.scripts,
+            ["replay/mission-safe-30.js", "app.js", "presentation-consistency.js"],
+        )
         for relative_path in inventory.scripts + inventory.stylesheets:
             self.assertFalse(relative_path.startswith(("http://", "https://", "//")))
             self.assertTrue((FRONTEND / relative_path).is_file(), relative_path)
@@ -54,6 +61,9 @@ class StaticReplayUITests(unittest.TestCase):
             "evidence-list",
             "manifest-hash",
             "verified-proof",
+            "mutation-policy",
+            "unsafe-outcome-card",
+            "gate-evidence-card",
         }
         self.assertTrue(required.issubset(inventory.ids), required - inventory.ids)
 
@@ -64,7 +74,9 @@ class StaticReplayUITests(unittest.TestCase):
         self.assertIn("No real KeeperHub transaction is claimed.", self.index)
 
     def test_no_network_wallet_secret_or_dynamic_html_capability(self) -> None:
-        combined = "\n".join((self.index, self.app, self.replay, self.css))
+        combined = "\n".join(
+            (self.index, self.app, self.consistency, self.replay, self.css, self.polish_css)
+        )
         forbidden = (
             "fetch(",
             "XMLHttpRequest",
@@ -87,8 +99,10 @@ class StaticReplayUITests(unittest.TestCase):
 
     def test_dom_rendering_uses_text_content(self) -> None:
         self.assertIn("element.textContent", self.app)
+        self.assertIn("element.textContent", self.consistency)
         self.assertIn("replaceChildren", self.app)
         self.assertNotIn("innerHTML", self.app)
+        self.assertNotIn("innerHTML", self.consistency)
 
     def test_replay_retains_exact_12_7_11_reference_preset(self) -> None:
         effect_refs = re.findall(r'effectRef: "(anna|mark|leo)"', self.replay)
@@ -121,6 +135,7 @@ class StaticReplayUITests(unittest.TestCase):
 
     def test_responsive_and_reduced_motion_rules_exist(self) -> None:
         self.assertIn("@media (max-width: 620px)", self.css)
+        self.assertIn("@media (max-width: 620px)", self.polish_css)
         self.assertIn("prefers-reduced-motion", self.css)
 
 
