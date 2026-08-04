@@ -5,8 +5,8 @@ no transfer, simulation, signing, broadcast, Workflow, MCP, x402, Marketplace,
 wallet-write, or mainnet execution capability.
 
 The organization key is read once from ``KEEPERHUB_API_KEY`` and removed from
-this process environment before the request. The full key and returned key
-prefixes are never printed, logged, or serialized.
+this process environment before the request. The full key, returned key
+prefixes, key names, key IDs, and creator identity are never serialized.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import os
 import re
 import uuid
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -28,6 +29,7 @@ _MAX_RESPONSE_BYTES = 262_144
 _MAX_API_KEY_LENGTH = 512
 _MAX_REQUEST_ID_LENGTH = 128
 _REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._:-]{1,128}")
+_KEY_PREFIX_PATTERN = re.compile(r"kh_[A-Za-z0-9_-]{3,125}")
 _PROVIDER_ERROR_CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,63}")
 _ALLOWED_PROVIDER_ERROR_CODES = frozenset({"insufficient_scope"})
 
@@ -212,17 +214,33 @@ def _one_get(
         ) from None
 
 
-def _optional_text(value: Any, code: str, *, maximum: int = 512) -> str | None:
+def _optional_timestamp(value: Any, code: str) -> str | None:
     if value is None:
         return None
     if (
         not isinstance(value, str)
         or not value
         or value.strip() != value
-        or len(value) > maximum
+        or len(value) > 64
         or any(ord(character) < 32 or ord(character) == 127 for character in value)
     ):
         raise KeyIdentityProbeError(code)
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise KeyIdentityProbeError(code) from None
+    if parsed.tzinfo is None:
+        raise KeyIdentityProbeError(code)
+    return value
+
+
+def _validated_key_prefix(value: Any) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) > 128
+        or _KEY_PREFIX_PATTERN.fullmatch(value) is None
+    ):
+        raise KeyIdentityProbeError("INVALID_KEY_PREFIX")
     return value
 
 
@@ -251,15 +269,12 @@ def _request_id_reflection(
     return "MATCH"
 
 
-def _classify_response(
-    api_key: str,
+def _base_result(
     correlation_id: str,
     status: int,
-    payload: Any,
-    headers: Mapping[str, str],
-) -> tuple[int, dict[str, Any]]:
-    reflection = _request_id_reflection(correlation_id, payload, headers)
-    base: dict[str, Any] = {
+    reflection: str,
+) -> dict[str, Any]:
+    return {
         "probe": _PROBE,
         "endpoint": "GET /api/keys",
         "get_requests": 1,
@@ -271,6 +286,27 @@ def _classify_response(
         "support_request_id": correlation_id,
         "request_id_reflection": reflection,
     }
+
+
+def _classify_response(
+    api_key: str,
+    correlation_id: str,
+    status: int,
+    payload: Any,
+    headers: Mapping[str, str],
+) -> tuple[int, dict[str, Any]]:
+    reflection = _request_id_reflection(correlation_id, payload, headers)
+    base = _base_result(correlation_id, status, reflection)
+
+    if reflection in {"INVALID", "MISMATCH"}:
+        base.update(
+            {
+                "status": "STOP",
+                "reason": "REQUEST_ID_REFLECTION_INVALID",
+                "retry": "MANUAL_PROVIDER_REVIEW_REQUIRED",
+            }
+        )
+        return 2, base
 
     if status != 200:
         base.update(
@@ -288,30 +324,23 @@ def _classify_response(
     if not isinstance(payload, list):
         raise KeyIdentityProbeError("INVALID_KEYS_RESPONSE")
 
-    matches: list[dict[str, Any]] = []
+    matches: list[dict[str, str | None]] = []
     for item in payload:
         if not isinstance(item, Mapping):
             raise KeyIdentityProbeError("INVALID_KEYS_RESPONSE")
-        prefix = _optional_text(
-            item.get("keyPrefix"),
-            "INVALID_KEY_PREFIX",
-            maximum=128,
-        )
-        if prefix is None or not prefix.startswith("kh_"):
-            raise KeyIdentityProbeError("INVALID_KEY_PREFIX")
+        prefix = _validated_key_prefix(item.get("keyPrefix"))
         if api_key.startswith(prefix):
             matches.append(
                 {
-                    "name": _optional_text(item.get("name"), "INVALID_KEY_NAME"),
-                    "created_at": _optional_text(
+                    "created_at": _optional_timestamp(
                         item.get("createdAt"),
                         "INVALID_CREATED_AT",
                     ),
-                    "last_used_at": _optional_text(
+                    "last_used_at": _optional_timestamp(
                         item.get("lastUsedAt"),
                         "INVALID_LAST_USED_AT",
                     ),
-                    "expires_at": _optional_text(
+                    "expires_at": _optional_timestamp(
                         item.get("expiresAt"),
                         "INVALID_EXPIRES_AT",
                     ),
@@ -345,7 +374,6 @@ def _classify_response(
             "status": "PASS",
             "reason": "ORGANIZATION_KEY_VISIBLE_TO_BACKEND",
             "organization_key_match": "MATCH",
-            "matched_key_name": match["name"],
             "created_at": match["created_at"],
             "last_used_at": match["last_used_at"],
             "expires_at": match["expires_at"],
@@ -426,6 +454,8 @@ def main() -> int:
                     "reason": "LOCAL_API_KEY_NOT_SET",
                     "get_requests": 0,
                     "post_requests": 0,
+                    "simulation_posts": 0,
+                    "broadcast_posts": 0,
                     "funds_moved": False,
                     "retry": "LOCAL_INPUT_CORRECTION_ALLOWED",
                 },
@@ -447,7 +477,7 @@ def main() -> int:
             "probe": _PROBE,
             "status": "OUTCOME_UNKNOWN",
             "reason": "UNEXPECTED_PROBE_FAILURE",
-            "get_requests": "UNKNOWN",
+            "get_requests": None,
             "maximum_get_requests": 1,
             "post_requests": 0,
             "simulation_posts": 0,
