@@ -39,6 +39,16 @@ class ProbeError(RuntimeError):
         super().__init__(code)
 
 
+def performed(error: ProbeError) -> ProbeError:
+    if error.request_performed:
+        return error
+    return ProbeError(
+        error.code,
+        request_performed=True,
+        outcome_unknown=error.outcome_unknown,
+    )
+
+
 class Opener(Protocol):
     def open(self, request: Request, *, timeout: float): ...
 
@@ -162,12 +172,18 @@ def one_get(
     try:
         response = client.open(request, timeout=10.0)
         try:
-            return decode_response(response)
+            try:
+                return decode_response(response)
+            except ProbeError as error:
+                raise performed(error) from None
         finally:
             response.close()
     except HTTPError as error:
         try:
-            return decode_response(error)
+            try:
+                return decode_response(error)
+            except ProbeError as decode_error:
+                raise performed(decode_error) from None
         finally:
             error.close()
     except ProbeError:
