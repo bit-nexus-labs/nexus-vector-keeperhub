@@ -88,9 +88,10 @@ reason: ORGANIZATION_KEY_VISIBLE_TO_BACKEND
 funds_moved: false
 ```
 
-The output may include the safe key name and lifecycle timestamps. It never
-includes the full API key, returned key prefixes, key IDs, creator identity,
-wallet address, organization ID, raw response body, headers, or backend detail.
+The output may include lifecycle timestamps (`created_at`, `last_used_at`, and
+`expires_at`). It never includes the full API key, returned key prefixes, key
+names, key IDs, creator identity, wallet address, organization ID, raw response
+body, headers, or backend detail.
 
 `support_request_id` is a generated correlation identifier intended for a
 private support ticket. Do not publish it in README, screenshots, demo video,
@@ -122,6 +123,17 @@ keys, but its returned prefix did not identify the local key. Treat this as an
 organization-context contradiction and review with KeeperHub before further
 runtime actions.
 
+### Request-ID integrity failure
+
+```text
+status: STOP
+reason: REQUEST_ID_REFLECTION_INVALID
+request_id_reflection: INVALID | MISMATCH
+```
+
+Do not trust the payload as support-correlated evidence. Preserve the locally
+generated support request ID and request provider review before another probe.
+
 ### Network ambiguity
 
 ```text
@@ -140,6 +152,7 @@ connectivity first.
 | 401 | Credential rejected | Review revocation/expiry/backend mapping; no new key by default |
 | 403 `insufficient_scope` | `/api/keys` contradicts the documented organization-key scope | Escalate with support request ID |
 | 200 but MISMATCH | Active organization context differs from the key identity | Stop and reconcile organization mapping |
+| Request ID mismatch | Provider response cannot be tied safely to the sent probe ID | Stop and request provider review |
 | OUTCOME_UNKNOWN | Request result is ambiguous | No blind repeat; inspect connectivity and preserve evidence |
 
 ## Safety boundary
