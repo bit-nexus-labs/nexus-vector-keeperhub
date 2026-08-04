@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import sys
 import uuid
 from collections.abc import Mapping
 from typing import Any, Protocol
@@ -43,11 +42,13 @@ class KeyIdentityProbeError(RuntimeError):
         http_status: int | None = None,
         provider_error_code: str | None = None,
         outcome_unknown: bool = False,
+        request_performed: bool = False,
     ) -> None:
         self.code = code
         self.http_status = http_status
         self.provider_error_code = provider_error_code
         self.outcome_unknown = outcome_unknown
+        self.request_performed = request_performed
         super().__init__(code)
 
 
@@ -58,6 +59,18 @@ class _Opener(Protocol):
 class _NoRedirectHandler(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise KeyIdentityProbeError("HTTP_REDIRECT_BLOCKED")
+
+
+def _request_performed(error: KeyIdentityProbeError) -> KeyIdentityProbeError:
+    if error.request_performed:
+        return error
+    return KeyIdentityProbeError(
+        error.code,
+        http_status=error.http_status,
+        provider_error_code=error.provider_error_code,
+        outcome_unknown=error.outcome_unknown,
+        request_performed=True,
+    )
 
 
 def _validate_api_key(value: Any) -> str:
@@ -175,20 +188,27 @@ def _one_get(
     try:
         response = client.open(request, timeout=float(timeout_seconds))
         try:
-            return _decode_response(response)
+            try:
+                return _decode_response(response)
+            except KeyIdentityProbeError as error:
+                raise _request_performed(error) from None
         finally:
             response.close()
     except HTTPError as error:
         try:
-            return _decode_response(error)
+            try:
+                return _decode_response(error)
+            except KeyIdentityProbeError as decode_error:
+                raise _request_performed(decode_error) from None
         finally:
             error.close()
-    except KeyIdentityProbeError:
-        raise
+    except KeyIdentityProbeError as error:
+        raise _request_performed(error) from None
     except (TimeoutError, URLError, OSError):
         raise KeyIdentityProbeError(
             "NETWORK_OUTCOME_UNKNOWN",
             outcome_unknown=True,
+            request_performed=True,
         ) from None
 
 
@@ -231,23 +251,14 @@ def _request_id_reflection(
     return "MATCH"
 
 
-def run_probe(
+def _classify_response(
     api_key: str,
-    *,
-    opener: _Opener | None = None,
-    request_id: str | None = None,
+    correlation_id: str,
+    status: int,
+    payload: Any,
+    headers: Mapping[str, str],
 ) -> tuple[int, dict[str, Any]]:
-    """Perform one GET and return bounded identity evidence."""
-
-    key = _validate_api_key(api_key)
-    correlation_id = _generated_request_id() if request_id is None else _validate_request_id(request_id)
-    status, payload, headers = _one_get(
-        key,
-        correlation_id,
-        opener=opener,
-    )
     reflection = _request_id_reflection(correlation_id, payload, headers)
-
     base: dict[str, Any] = {
         "probe": _PROBE,
         "endpoint": "GET /api/keys",
@@ -281,16 +292,29 @@ def run_probe(
     for item in payload:
         if not isinstance(item, Mapping):
             raise KeyIdentityProbeError("INVALID_KEYS_RESPONSE")
-        prefix = _optional_text(item.get("keyPrefix"), "INVALID_KEY_PREFIX", maximum=128)
+        prefix = _optional_text(
+            item.get("keyPrefix"),
+            "INVALID_KEY_PREFIX",
+            maximum=128,
+        )
         if prefix is None or not prefix.startswith("kh_"):
             raise KeyIdentityProbeError("INVALID_KEY_PREFIX")
-        if key.startswith(prefix):
+        if api_key.startswith(prefix):
             matches.append(
                 {
                     "name": _optional_text(item.get("name"), "INVALID_KEY_NAME"),
-                    "created_at": _optional_text(item.get("createdAt"), "INVALID_CREATED_AT"),
-                    "last_used_at": _optional_text(item.get("lastUsedAt"), "INVALID_LAST_USED_AT"),
-                    "expires_at": _optional_text(item.get("expiresAt"), "INVALID_EXPIRES_AT"),
+                    "created_at": _optional_text(
+                        item.get("createdAt"),
+                        "INVALID_CREATED_AT",
+                    ),
+                    "last_used_at": _optional_text(
+                        item.get("lastUsedAt"),
+                        "INVALID_LAST_USED_AT",
+                    ),
+                    "expires_at": _optional_text(
+                        item.get("expiresAt"),
+                        "INVALID_EXPIRES_AT",
+                    ),
                 }
             )
 
@@ -331,19 +355,57 @@ def run_probe(
     return 0, base
 
 
-def _error_result(error: KeyIdentityProbeError, request_id: str | None) -> dict[str, Any]:
+def run_probe(
+    api_key: str,
+    *,
+    opener: _Opener | None = None,
+    request_id: str | None = None,
+) -> tuple[int, dict[str, Any]]:
+    """Perform one GET and return bounded identity evidence."""
+
+    key = _validate_api_key(api_key)
+    correlation_id = (
+        _generated_request_id()
+        if request_id is None
+        else _validate_request_id(request_id)
+    )
+    status, payload, headers = _one_get(
+        key,
+        correlation_id,
+        opener=opener,
+    )
+    try:
+        return _classify_response(
+            key,
+            correlation_id,
+            status,
+            payload,
+            headers,
+        )
+    except KeyIdentityProbeError as error:
+        raise _request_performed(error) from None
+
+
+def _error_result(
+    error: KeyIdentityProbeError,
+    request_id: str | None,
+) -> dict[str, Any]:
     result: dict[str, Any] = {
         "probe": _PROBE,
         "status": "OUTCOME_UNKNOWN" if error.outcome_unknown else "STOP",
         "reason": error.code,
-        "get_requests": 1 if error.outcome_unknown else 0,
+        "get_requests": 1 if error.request_performed else 0,
         "post_requests": 0,
         "simulation_posts": 0,
         "broadcast_posts": 0,
         "funds_moved": False,
-        "retry": "REVIEW_BEFORE_REPEAT",
+        "retry": (
+            "REVIEW_BEFORE_REPEAT"
+            if error.request_performed
+            else "LOCAL_INPUT_CORRECTION_ALLOWED"
+        ),
     }
-    if request_id is not None:
+    if error.request_performed and request_id is not None:
         result["support_request_id"] = request_id
     if error.http_status is not None:
         result["http_status"] = error.http_status
@@ -373,6 +435,7 @@ def main() -> int:
         return 2
 
     try:
+        api_key = _validate_api_key(api_key)
         request_id = _generated_request_id()
         exit_code, result = run_probe(api_key, request_id=request_id)
     except KeyIdentityProbeError as error:
@@ -382,14 +445,15 @@ def main() -> int:
         exit_code = 2
         result = {
             "probe": _PROBE,
-            "status": "STOP",
-            "reason": "UNEXPECTED_LOCAL_FAILURE",
-            "get_requests": 0,
+            "status": "OUTCOME_UNKNOWN",
+            "reason": "UNEXPECTED_PROBE_FAILURE",
+            "get_requests": "UNKNOWN",
+            "maximum_get_requests": 1,
             "post_requests": 0,
             "simulation_posts": 0,
             "broadcast_posts": 0,
             "funds_moved": False,
-            "retry": "MANUAL_LOCAL_REVIEW_REQUIRED",
+            "retry": "MANUAL_REVIEW_REQUIRED",
         }
     finally:
         api_key = None
