@@ -182,6 +182,22 @@ class SurfaceProbeTests(unittest.TestCase):
                 self.assertNotIn("private", json.dumps(result))
                 self.assertEqual(len(opener.calls), 1)
 
+    def test_decode_failure_after_open_counts_the_get(self):
+        response = Response(200, {"items": []})
+        response.headers = object()
+        opener = Opener(response)
+
+        with self.assertRaises(PROBE.ProbeError) as caught:
+            PROBE.run(
+                API_KEY,
+                opener=opener,
+                request_id=REQUEST_ID,
+            )
+
+        self.assertEqual(caught.exception.code, "INVALID_HTTP_RESPONSE")
+        self.assertTrue(caught.exception.request_performed)
+        self.assertEqual(len(opener.calls), 1)
+
     def test_source_has_only_get_capability(self):
         source = MODULE_PATH.read_text(encoding="utf-8")
         self.assertIn('method="GET"', source)
