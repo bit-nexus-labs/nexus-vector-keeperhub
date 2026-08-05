@@ -20,6 +20,7 @@ from nexus_vector.integrations.keeperhub_direct_execution import (
 )
 
 _KEEPERHUB_BASE_URL = "https://app.keeperhub.com/api"
+_KEEPERHUB_USER_AGENT = "NexusVector-KeeperHub/1.0"
 _MAX_RESPONSE_BYTES = 1_048_576
 _MAX_API_KEY_LENGTH = 512
 _MAX_TIMEOUT_SECONDS = 60
@@ -357,6 +358,7 @@ class KeeperHubHttpTransport:
         headers = {
             "Accept": "application/json",
             "Authorization": f"Bearer {self._api_key}",
+            "User-Agent": _KEEPERHUB_USER_AGENT,
         }
         if body is not None:
             try:

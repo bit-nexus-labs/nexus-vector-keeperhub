@@ -19,6 +19,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 PROBE = "KEEPERHUB_KEY_IDENTITY_SURFACE_V1"
 API_KEY_ENV = "KEEPERHUB_API_KEY"
 URL = "https://app.keeperhub.com/api/keys"
+USER_AGENT = "NexusVector-KeeperHub/1.0"
 MAX_BYTES = 262_144
 REQUEST_ID_RE = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 PREFIX_RE = re.compile(r"kh_[A-Za-z0-9_-]{5}")
@@ -165,6 +166,7 @@ def one_get(
         headers={
             "Accept": "application/json",
             "Authorization": f"Bearer {key}",
+            "User-Agent": USER_AGENT,
             "X-Request-ID": correlation_id,
         },
         method="GET",

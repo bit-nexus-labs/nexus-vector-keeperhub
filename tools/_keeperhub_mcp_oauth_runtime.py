@@ -40,6 +40,7 @@ REGISTER_URL = f"{BASE_URL}/api/oauth/register"
 AUTHORIZE_URL = f"{BASE_URL}/oauth/authorize"
 TOKEN_URL = f"{BASE_URL}/api/oauth/token"
 MCP_URL = f"{BASE_URL}/mcp"
+USER_AGENT = "NexusVector-KeeperHub/1.0"
 SCOPE = "mcp:read"
 PROTOCOL_VERSION = "2025-06-18"
 CALLBACK_PATH = "/callback"
@@ -191,6 +192,7 @@ class UrllibHttpClient:
         support_request_id: str,
     ) -> HttpResult:
         request_headers = dict(headers or {})
+        request_headers["User-Agent"] = USER_AGENT
         request_headers["X-Request-ID"] = support_request_id
         request = Request(
             url,
