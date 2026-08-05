@@ -44,14 +44,33 @@ _ALLOWED_BALANCE_FIELDS = frozenset(
         "decimals",
         "error",
         "isnative",
+        "istestnet",
         "name",
+        "nativebalance",
+        "nativebalanceraw",
         "network",
         "success",
+        "supportedtokens",
         "symbol",
         "tokenaddress",
         "type",
     }
 )
+_SAFE_BALANCE_TEXT_FIELDS = frozenset(
+    {
+        "balance",
+        "balancewei",
+        "chainname",
+        "error",
+        "name",
+        "nativebalance",
+        "nativebalanceraw",
+        "network",
+        "symbol",
+        "type",
+    }
+)
+_MAX_SAFE_BALANCE_TEXT = 256
 _MAX_SANITIZE_NODES = 10_000
 
 
@@ -73,8 +92,21 @@ def _normalized_key(value: str) -> str:
     return "".join(character for character in value.casefold() if character.isalnum())
 
 
+def _safe_balance_text(value: str, key_hint: str | None) -> str:
+    if key_hint not in _SAFE_BALANCE_TEXT_FIELDS:
+        return "<redacted>"
+    if (
+        not value
+        or len(value) > _MAX_SAFE_BALANCE_TEXT
+        or value.strip() != value
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        return "<redacted>"
+    return value
+
+
 def _sanitize_balance_payload(value: Any) -> Any:
-    """Keep balance facts while redacting identifiers and unknown fields."""
+    """Keep bounded balance facts while redacting identifiers and unknown fields."""
 
     visited = 0
 
@@ -102,9 +134,7 @@ def _sanitize_balance_payload(value: Any) -> Any:
         if isinstance(current, str):
             if _EVM_ADDRESS.fullmatch(current):
                 return _mask_address(current)
-            if key_hint in {"balance", "balancewei", "symbol", "name", "network", "chainname", "type", "error"}:
-                return current
-            return "<redacted>"
+            return _safe_balance_text(current, key_hint)
         if current is None or type(current) in {bool, int, float}:
             return current
         return "<redacted>"
