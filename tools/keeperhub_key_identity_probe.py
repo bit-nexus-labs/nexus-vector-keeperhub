@@ -32,7 +32,15 @@ _MAX_REQUEST_ID_LENGTH = 128
 _REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 _KEY_PREFIX_PATTERN = re.compile(r"kh_[A-Za-z0-9_-]{3,125}")
 _PROVIDER_ERROR_CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,63}")
-_ALLOWED_PROVIDER_ERROR_CODES = frozenset({"insufficient_scope"})
+_ALLOWED_PROVIDER_ERROR_CODES = frozenset({
+    "unauthorized",
+    "insufficient_scope",
+    "not_found",
+    "invalid_input",
+    "conflict",
+    "rate_limited",
+    "internal_error",
+})
 
 
 class KeyIdentityProbeError(RuntimeError):
