@@ -25,6 +25,7 @@ _PROBE = "KEEPERHUB_KEY_IDENTITY_V1"
 _API_KEY_ENV = "KEEPERHUB_API_KEY"
 _BASE_URL = "https://app.keeperhub.com/api"
 _PATH = "/keys"
+_USER_AGENT = "NexusVector-KeeperHub/1.0"
 _MAX_RESPONSE_BYTES = 262_144
 _MAX_API_KEY_LENGTH = 512
 _MAX_REQUEST_ID_LENGTH = 128
@@ -183,6 +184,7 @@ def _one_get(
         headers={
             "Accept": "application/json",
             "Authorization": f"Bearer {key}",
+            "User-Agent": _USER_AGENT,
             "X-Request-ID": correlation_id,
         },
         method="GET",
