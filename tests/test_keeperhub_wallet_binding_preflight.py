@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -19,6 +20,7 @@ SPEC = importlib.util.spec_from_file_location(
 )
 assert SPEC is not None and SPEC.loader is not None
 PROBE = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = PROBE
 SPEC.loader.exec_module(PROBE)
 
 SENDER = "0x" + "11" * 20
