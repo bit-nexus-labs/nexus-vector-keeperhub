@@ -26,6 +26,15 @@ _MAX_API_KEY_LENGTH = 512
 _MAX_TIMEOUT_SECONDS = 60
 _EVM_ADDRESS_PATTERN = re.compile(r"0x[0-9a-fA-F]{40}")
 _PROVIDER_ERROR_CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,63}")
+_ALLOWED_PROVIDER_ERROR_CODES = frozenset({
+    "unauthorized",
+    "insufficient_scope",
+    "not_found",
+    "invalid_input",
+    "conflict",
+    "rate_limited",
+    "internal_error",
+})
 
 
 class KeeperHubHttpTransportError(RuntimeError):
@@ -101,6 +110,7 @@ def _safe_provider_error_code(payload: Any) -> str | None:
     if (
         isinstance(candidate, str)
         and _PROVIDER_ERROR_CODE_PATTERN.fullmatch(candidate) is not None
+        and candidate in _ALLOWED_PROVIDER_ERROR_CODES
     ):
         return candidate
     return None
