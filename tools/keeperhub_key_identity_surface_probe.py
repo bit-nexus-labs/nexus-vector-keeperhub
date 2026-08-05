@@ -23,7 +23,15 @@ USER_AGENT = "NexusVector-KeeperHub/1.0"
 MAX_BYTES = 262_144
 REQUEST_ID_RE = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 PREFIX_RE = re.compile(r"kh_[A-Za-z0-9_-]{5}")
-ALLOWED_ERROR_CODES = frozenset({"insufficient_scope"})
+ALLOWED_ERROR_CODES = frozenset({
+    "unauthorized",
+    "insufficient_scope",
+    "not_found",
+    "invalid_input",
+    "conflict",
+    "rate_limited",
+    "internal_error",
+})
 
 
 class ProbeError(RuntimeError):
