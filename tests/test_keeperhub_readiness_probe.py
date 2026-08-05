@@ -108,6 +108,78 @@ class KeeperHubReadinessProbeTests(unittest.TestCase):
             f"{WALLET[:8]}…{WALLET[-6:]}",
         )
 
+    def test_live_balance_shape_exposes_safe_funding_facts(self):
+        payload = {
+            "walletAddress": WALLET,
+            "balances": [
+                {
+                    "chainId": 84532,
+                    "chainName": "Base Sepolia",
+                    "isTestnet": True,
+                    "nativeBalance": "0.125",
+                    "nativeBalanceRaw": "125000000000000000",
+                    "supportedTokens": [
+                        {
+                            "name": "USD Coin",
+                            "symbol": "USDC",
+                            "decimals": 6,
+                            "balance": "10.5",
+                            "tokenAddress": TOKEN,
+                            "privateId": "provider-private-id",
+                        }
+                    ],
+                    "symbol": "BASE",
+                    "tokens": [
+                        {
+                            "symbol": "USDC",
+                            "balance": "10.5",
+                            "tokenAddress": TOKEN,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        sanitized = PROBE._sanitize_balance_payload(payload)
+        chain = sanitized["balances"][0]
+
+        self.assertTrue(chain["isTestnet"])
+        self.assertEqual(chain["nativeBalance"], "0.125")
+        self.assertEqual(chain["nativeBalanceRaw"], "125000000000000000")
+        self.assertEqual(chain["symbol"], "BASE")
+        self.assertEqual(chain["supportedTokens"][0]["symbol"], "USDC")
+        self.assertEqual(chain["supportedTokens"][0]["balance"], "10.5")
+        self.assertEqual(
+            chain["supportedTokens"][0]["tokenAddress"],
+            f"{TOKEN[:8]}…{TOKEN[-6:]}",
+        )
+        self.assertEqual(
+            chain["supportedTokens"][0]["privateId"],
+            "<redacted>",
+        )
+        self.assertEqual(sanitized["walletAddress"], "<redacted>")
+        self.assertNotIn(WALLET, json.dumps(sanitized, sort_keys=True))
+        self.assertNotIn(TOKEN, json.dumps(sanitized, sort_keys=True))
+        self.assertNotIn("provider-private-id", json.dumps(sanitized, sort_keys=True))
+
+    def test_unbounded_or_control_character_balance_text_is_redacted(self):
+        sanitized = PROBE._sanitize_balance_payload(
+            {
+                "balances": [
+                    {
+                        "chainId": 84532,
+                        "nativeBalance": "1" * 257,
+                        "nativeBalanceRaw": "10\n20",
+                        "symbol": " BASE ",
+                    }
+                ]
+            }
+        )
+        chain = sanitized["balances"][0]
+        self.assertEqual(chain["nativeBalance"], "<redacted>")
+        self.assertEqual(chain["nativeBalanceRaw"], "<redacted>")
+        self.assertEqual(chain["symbol"], "<redacted>")
+
     def test_wallet_not_ready_stops_before_other_calls(self):
         client = FakeClient(
             FakeReadiness(False, False, None),
