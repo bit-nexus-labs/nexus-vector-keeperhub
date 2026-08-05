@@ -269,6 +269,9 @@ def run_preflight(
     client: WalletReadinessClient,
     binding: LocalWalletBinding,
 ) -> tuple[int, dict[str, Any]]:
+    if not isinstance(binding, LocalWalletBinding):
+        _fail("INVALID_LOCAL_WALLET_BINDING")
+
     result = _base_result()
     result["local_registry"] = {
         "schema_version": 1,
@@ -293,7 +296,13 @@ def run_preflight(
         result["retry"] = "REVIEW_BEFORE_REPEAT"
         return 2, result
 
-    if readiness.wallet_address.casefold() != binding.keeperhub_sender:
+    provider_wallet = readiness.wallet_address
+    if _EVM_ADDRESS.fullmatch(provider_wallet) is None:
+        result["reason"] = "INVALID_PROVIDER_WALLET_ADDRESS"
+        result["retry"] = "FORBIDDEN"
+        return 2, result
+
+    if provider_wallet.casefold() != binding.keeperhub_sender:
         result["keeperhub_wallet_binding"] = "MISMATCH"
         result["reason"] = "KEEPERHUB_WALLET_BINDING_MISMATCH"
         result["retry"] = "MANUAL_LOCAL_REVIEW_REQUIRED"
@@ -306,17 +315,22 @@ def run_preflight(
     return 0, result
 
 
-def _transport_failure(error: KeeperHubHttpTransportError) -> dict[str, Any]:
+def _transport_failure(
+    error: KeeperHubHttpTransportError,
+    *,
+    request_attempted: bool,
+) -> dict[str, Any]:
     result = _base_result()
-    result["get_requests"] = 1
-    result["requests"]["wallet"] = "OUTCOME_UNKNOWN"
+    if request_attempted:
+        result["get_requests"] = 1
+        result["requests"]["wallet"] = "OUTCOME_UNKNOWN"
     result["reason"] = error.code
     result["retry"] = (
         "REVIEW_BEFORE_REPEAT"
-        if error.code == "NETWORK_OUTCOME_UNKNOWN"
+        if request_attempted and error.code == "NETWORK_OUTCOME_UNKNOWN"
         else "FORBIDDEN"
     )
-    if error.code == "NETWORK_OUTCOME_UNKNOWN":
+    if request_attempted and error.code == "NETWORK_OUTCOME_UNKNOWN":
         result["status"] = "OUTCOME_UNKNOWN"
     if error.http_status is not None:
         result["http_status"] = error.http_status
@@ -333,9 +347,19 @@ def main() -> int:
         if api_key is None:
             _fail("LOCAL_API_KEY_NOT_SET")
 
-        transport = KeeperHubHttpTransport(api_key)
+        try:
+            transport = KeeperHubHttpTransport(api_key)
+        except KeeperHubHttpTransportError as error:
+            if error.code == "INVALID_API_KEY":
+                _fail("LOCAL_API_KEY_FORMAT_INVALID")
+            raise
+
         client = KeeperHubWalletBindingReadOnlyClient(transport)
-        exit_code, result = run_preflight(client, binding)
+        try:
+            exit_code, result = run_preflight(client, binding)
+        except KeeperHubHttpTransportError as error:
+            exit_code = 2
+            result = _transport_failure(error, request_attempted=True)
     except WalletBindingPreflightError as error:
         exit_code = 2
         result = _base_result()
@@ -343,7 +367,7 @@ def main() -> int:
         result["retry"] = "LOCAL_CORRECTION_REQUIRED"
     except KeeperHubHttpTransportError as error:
         exit_code = 2
-        result = _transport_failure(error)
+        result = _transport_failure(error, request_attempted=False)
     except Exception:
         exit_code = 2
         result = _base_result()
