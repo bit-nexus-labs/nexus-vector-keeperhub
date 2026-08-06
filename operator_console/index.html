@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Read-only Nexus Vector local operator console for sanitized testnet runtime evidence.">
+  <title>Nexus Vector — Live Operator Console</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">NV</span>
+      <div>
+        <strong>Nexus Vector</strong>
+        <small>Local Operator Console</small>
+      </div>
+    </div>
+    <div class="runtime-identity">
+      <span class="live-badge"><i aria-hidden="true"></i> LIVE TESTNET RUNTIME</span>
+      <span class="quiet-badge">LOCALHOST ONLY</span>
+      <span class="quiet-badge safe">MAINNET BLOCKED</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Controlled runtime evidence</p>
+        <h1>See exactly what is live.<br><span>Never confuse simulation with money movement.</span></h1>
+        <p class="hero-copy">This console renders sanitized evidence from local files. The browser has no KeeperHub transport, credentials, signing, broadcast, or write endpoints.</p>
+      </div>
+      <aside class="authority-card" aria-label="Current authority boundary">
+        <div class="authority-line"><span>Surface</span><strong>READ ONLY</strong></div>
+        <div class="authority-line"><span>Network</span><strong>BASE SEPOLIA</strong></div>
+        <div class="authority-line"><span>Provider writes</span><strong>DISABLED</strong></div>
+        <div class="authority-line"><span>Funds movement</span><strong>IMPOSSIBLE HERE</strong></div>
+      </aside>
+    </section>
+
+    <section class="stage-rail" aria-label="Runtime evidence stages">
+      <div class="stage is-complete" data-stage="plan"><span>01</span><strong>Plan</strong><small>Offline state</small></div>
+      <div class="stage-arrow" aria-hidden="true">→</div>
+      <div class="stage is-active" data-stage="simulate"><span>02</span><strong>Simulate</strong><small>Live provider check</small></div>
+      <div class="stage-arrow" aria-hidden="true">→</div>
+      <div class="stage" data-stage="approve"><span>03</span><strong>Approve</strong><small>Separate authority</small></div>
+      <div class="stage-arrow" aria-hidden="true">→</div>
+      <div class="stage" data-stage="broadcast"><span>04</span><strong>Broadcast</strong><small>Testnet write</small></div>
+      <div class="stage-arrow" aria-hidden="true">→</div>
+      <div class="stage" data-stage="verify"><span>05</span><strong>Verify</strong><small>Independent chain proof</small></div>
+      <div class="stage-arrow" aria-hidden="true">→</div>
+      <div class="stage" data-stage="complete"><span>06</span><strong>Complete</strong><small>Replay-safe</small></div>
+    </section>
+
+    <section class="metrics" aria-label="Runtime safety summary">
+      <article class="metric">
+        <span>Console mode</span>
+        <strong id="metric-mode">READ ONLY</strong>
+        <small>No mutation endpoints</small>
+      </article>
+      <article class="metric cyan">
+        <span>Simulation POSTs</span>
+        <strong id="metric-simulation">—</strong>
+        <small>Sanitized evidence</small>
+      </article>
+      <article class="metric amber">
+        <span>Broadcast POSTs</span>
+        <strong id="metric-broadcast">—</strong>
+        <small>Expected zero in this phase</small>
+      </article>
+      <article class="metric green">
+        <span>Funds moved</span>
+        <strong id="metric-funds">—</strong>
+        <small>Must remain false</small>
+      </article>
+    </section>
+
+    <section class="workspace">
+      <article class="panel canary-panel">
+        <header class="panel-heading">
+          <div>
+            <p class="section-label">Live provider evidence</p>
+            <h2>Simulation Canary</h2>
+          </div>
+          <span id="canary-badge" class="evidence-badge cyan">LOADING</span>
+        </header>
+
+        <div class="active-operation">
+          <div class="operation-orb" aria-hidden="true"><span></span></div>
+          <div>
+            <p id="canary-level" class="operation-level">LIVE SIMULATION</p>
+            <h3 id="canary-status">Waiting for sanitized evidence</h3>
+            <p id="canary-copy">No local evidence file has been loaded yet.</p>
+          </div>
+        </div>
+
+        <dl class="fact-grid">
+          <div><dt>Provider status</dt><dd id="provider-status">—</dd></div>
+          <div><dt>HTTP</dt><dd id="provider-http">—</dd></div>
+          <div><dt>Would revert</dt><dd id="provider-revert">—</dd></div>
+          <div><dt>Gas estimate</dt><dd id="provider-gas">—</dd></div>
+          <div><dt>Action sheet</dt><dd id="action-sheet">—</dd></div>
+          <div><dt>Fingerprint</dt><dd id="fingerprint">—</dd></div>
+        </dl>
+
+        <div class="claim-boundary">
+          <span>Evidence claim boundary</span>
+          <strong id="claim-boundary">SIMULATION ONLY · NOT TRANSACTION EVIDENCE</strong>
+        </div>
+      </article>
+
+      <article class="panel mission-panel">
+        <header class="panel-heading">
+          <div>
+            <p class="section-label">Durable Mission plan</p>
+            <h2>Anna + Mark</h2>
+          </div>
+          <span id="mission-badge" class="evidence-badge blue">OFFLINE PLAN</span>
+        </header>
+
+        <div class="mission-meta">
+          <div><span>Mission</span><strong id="mission-ref">runtime-evidence-001</strong></div>
+          <div><span>State</span><strong id="mission-state">LOADING</strong></div>
+          <div><span>Total</span><strong id="mission-total">0.19 USDC</strong></div>
+        </div>
+
+        <div id="effect-list" class="effect-list" aria-live="polite">
+          <article class="effect-card">
+            <div><span>ANNA</span><strong>0.12 USDC</strong></div>
+            <p>Loading sanitized Mission plan…</p>
+          </article>
+          <article class="effect-card">
+            <div><span>MARK</span><strong>0.07 USDC</strong></div>
+            <p>Loading sanitized Mission plan…</p>
+          </article>
+        </div>
+
+        <div class="continuation-line">
+          <span class="neon-arrow" aria-hidden="true">↓</span>
+          <div>
+            <small>Deterministic continuation</small>
+            <strong>CONTINUE ONLY THE MISSING EFFECT</strong>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="evidence-flow panel">
+      <header class="panel-heading">
+        <div>
+          <p class="section-label">Proof ladder</p>
+          <h2>Every green state means something precise</h2>
+        </div>
+        <button id="refresh" class="refresh-button" type="button">Refresh local state</button>
+      </header>
+
+      <div class="proof-ladder">
+        <article class="proof-node blue is-complete">
+          <span>OFFLINE PLAN</span>
+          <strong>Mission persisted and classified</strong>
+          <small>Zero provider calls</small>
+        </article>
+        <div class="proof-arrow active" aria-hidden="true">→</div>
+        <article id="proof-simulation" class="proof-node cyan is-active">
+          <span>LIVE SIMULATION</span>
+          <strong>Provider checked exact effect</strong>
+          <small>No broadcast · no funds moved</small>
+        </article>
+        <div class="proof-arrow" aria-hidden="true">→</div>
+        <article class="proof-node purple">
+          <span>PROVIDER ACKNOWLEDGED</span>
+          <strong>Execution reference persisted</strong>
+          <small>Chain result still pending</small>
+        </article>
+        <div class="proof-arrow" aria-hidden="true">→</div>
+        <article class="proof-node green">
+          <span>CHAIN VERIFIED</span>
+          <strong>Exact ERC-20 transfer confirmed</strong>
+          <small>Only then may restart skip it</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="guardrail-grid">
+      <article class="guardrail"><span>01</span><strong>Browser cannot execute</strong><p>No KeeperHub client or credentials exist in browser code.</p></article>
+      <article class="guardrail"><span>02</span><strong>Server is localhost-only</strong><p>The process binds strictly to 127.0.0.1.</p></article>
+      <article class="guardrail"><span>03</span><strong>GET-only surface</strong><p>POST, PUT, PATCH and DELETE are hard-blocked.</p></article>
+      <article class="guardrail"><span>04</span><strong>Sanitized inputs only</strong><p>Unexpected fields, addresses or unsafe claims fail closed.</p></article>
+    </section>
+
+    <section id="error-banner" class="error-banner" hidden aria-live="assertive">
+      <strong>READ-ONLY EVIDENCE LOAD STOPPED</strong>
+      <span id="error-text"></span>
+    </section>
+  </main>
+
+  <footer>
+    <span>Nexus Vector · Mission-Safe Agent Payments</span>
+    <span>LOCAL READ-ONLY CONSOLE · NO LIVE WRITE CAPABILITY</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
