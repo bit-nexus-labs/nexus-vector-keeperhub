@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Read-only Nexus Vector local operator console for sanitized testnet runtime evidence.">
-  <title>Nexus Vector — Live Operator Console</title>
+  <title>Nexus Vector — Local Operator Console</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="polish.css">
 </head>
@@ -21,7 +21,7 @@
       </div>
     </div>
     <div class="runtime-identity">
-      <span class="live-badge"><i aria-hidden="true"></i> LIVE TESTNET RUNTIME</span>
+      <span id="runtime-badge" class="quiet-badge">LOCAL READ-ONLY CONSOLE</span>
       <span class="quiet-badge">LOCALHOST ONLY</span>
       <span class="quiet-badge safe">MAINNET BLOCKED</span>
     </div>
@@ -44,9 +44,9 @@
     </section>
 
     <section class="stage-rail" aria-label="Runtime evidence stages">
-      <div class="stage is-complete" data-stage="plan"><span>01</span><strong>Plan</strong><small>Offline state</small></div>
+      <div id="stage-plan" class="stage" data-stage="plan"><span>01</span><strong>Plan</strong><small id="stage-plan-status">Plan not loaded</small></div>
       <div class="stage-arrow" aria-hidden="true">→</div>
-      <div class="stage is-active" data-stage="simulate"><span>02</span><strong>Simulate</strong><small>Live provider check</small></div>
+      <div id="stage-simulate" class="stage" data-stage="simulate"><span>02</span><strong>Simulate</strong><small id="stage-simulate-status">Evidence not loaded</small></div>
       <div class="stage-arrow" aria-hidden="true">→</div>
       <div class="stage" data-stage="approve"><span>03</span><strong>Approve</strong><small>Separate authority</small></div>
       <div class="stage-arrow" aria-hidden="true">→</div>
@@ -71,29 +71,29 @@
       <article class="metric amber">
         <span>Broadcast POSTs</span>
         <strong id="metric-broadcast">—</strong>
-        <small>Expected zero in this phase</small>
+        <small>Sanitized evidence</small>
       </article>
       <article class="metric green">
         <span>Funds moved</span>
         <strong id="metric-funds">—</strong>
-        <small>Must remain false</small>
+        <small>Sanitized evidence</small>
       </article>
     </section>
 
     <section class="workspace">
-      <article class="panel canary-panel">
+      <article id="canary-panel" class="panel canary-panel is-unloaded">
         <header class="panel-heading">
           <div>
-            <p class="section-label">Live provider evidence</p>
+            <p class="section-label">Provider evidence</p>
             <h2>Simulation Canary</h2>
           </div>
-          <span id="canary-badge" class="evidence-badge cyan">LOADING</span>
+          <span id="canary-badge" class="evidence-badge">NOT LOADED</span>
         </header>
 
         <div class="active-operation">
           <div class="operation-orb" aria-hidden="true"><span></span></div>
           <div>
-            <p id="canary-level" class="operation-level">LIVE SIMULATION</p>
+            <p id="canary-level" class="operation-level">EVIDENCE NOT LOADED</p>
             <h3 id="canary-status">Waiting for sanitized evidence</h3>
             <p id="canary-copy">No local evidence file has been loaded yet.</p>
           </div>
@@ -110,7 +110,7 @@
 
         <div class="claim-boundary">
           <span>Evidence claim boundary</span>
-          <strong id="claim-boundary">SIMULATION ONLY · NOT TRANSACTION EVIDENCE</strong>
+          <strong id="claim-boundary">NO SIMULATION EVIDENCE LOADED</strong>
         </div>
       </article>
 
@@ -120,23 +120,19 @@
             <p class="section-label">Durable Mission plan</p>
             <h2>Anna + Mark</h2>
           </div>
-          <span id="mission-badge" class="evidence-badge blue">OFFLINE PLAN</span>
+          <span id="mission-badge" class="evidence-badge">PLAN NOT LOADED</span>
         </header>
 
         <div class="mission-meta">
-          <div><span>Mission</span><strong id="mission-ref">runtime-evidence-001</strong></div>
-          <div><span>State</span><strong id="mission-state">LOADING</strong></div>
-          <div><span>Total</span><strong id="mission-total">0.19 USDC</strong></div>
+          <div><span>Mission</span><strong id="mission-ref">—</strong></div>
+          <div><span>State</span><strong id="mission-state">NOT LOADED</strong></div>
+          <div><span>Total</span><strong id="mission-total">—</strong></div>
         </div>
 
         <div id="effect-list" class="effect-list" aria-live="polite">
           <article class="effect-card">
-            <div><span>ANNA</span><strong>0.12 USDC</strong></div>
-            <p>Loading sanitized Mission plan…</p>
-          </article>
-          <article class="effect-card">
-            <div><span>MARK</span><strong>0.07 USDC</strong></div>
-            <p>Loading sanitized Mission plan…</p>
+            <div><span>PLAN</span><strong>—</strong></div>
+            <p>Sanitized Mission plan not loaded.</p>
           </article>
         </div>
 
@@ -144,7 +140,7 @@
           <span class="neon-arrow" aria-hidden="true">↓</span>
           <div>
             <small>Deterministic continuation</small>
-            <strong>CONTINUE ONLY THE MISSING EFFECT</strong>
+            <strong id="continuation-status">WAITING FOR SANITIZED PLAN</strong>
           </div>
         </div>
       </article>
@@ -160,16 +156,16 @@
       </header>
 
       <div class="proof-ladder">
-        <article class="proof-node blue is-complete">
+        <article id="proof-plan" class="proof-node blue">
           <span>OFFLINE PLAN</span>
-          <strong>Mission persisted and classified</strong>
-          <small>Zero provider calls</small>
+          <strong id="proof-plan-title">Mission evidence not loaded</strong>
+          <small id="proof-plan-copy">Waiting for sanitized plan</small>
         </article>
-        <div class="proof-arrow active" aria-hidden="true">→</div>
-        <article id="proof-simulation" class="proof-node cyan is-active">
+        <div id="proof-plan-arrow" class="proof-arrow" aria-hidden="true">→</div>
+        <article id="proof-simulation" class="proof-node cyan">
           <span>LIVE SIMULATION</span>
-          <strong>Provider checked exact effect</strong>
-          <small>No broadcast · no funds moved</small>
+          <strong id="proof-simulation-title">Simulation evidence not loaded</strong>
+          <small id="proof-simulation-copy">No provider evidence claim yet</small>
         </article>
         <div class="proof-arrow" aria-hidden="true">→</div>
         <article class="proof-node purple">
