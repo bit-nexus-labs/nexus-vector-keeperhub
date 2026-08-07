@@ -159,6 +159,19 @@ class MissionValidationTests(unittest.TestCase):
             snapshot["browser_capabilities"]["write_endpoints"]
         )
 
+    def test_empty_snapshot_explicitly_marks_evidence_unloaded(self) -> None:
+        snapshot = SnapshotProvider().snapshot()
+        self.assertFalse(snapshot["canary"]["loaded"])
+        self.assertFalse(snapshot["mission"]["loaded"])
+        self.assertEqual(
+            snapshot["canary"]["evidence_level"],
+            "LIVE_SIMULATION_NOT_LOADED",
+        )
+        self.assertEqual(
+            snapshot["mission"]["evidence_level"],
+            "OFFLINE_PLAN_NOT_LOADED",
+        )
+
 
 class LocalServerTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -209,6 +222,20 @@ class LocalServerTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as caught:
             urlopen(f"{self.base_url}/../README.md", timeout=2)
         self.assertEqual(caught.exception.code, 404)
+
+    def test_unloaded_shell_does_not_claim_live_evidence(self) -> None:
+        with urlopen(f"{self.base_url}/", timeout=2) as response:
+            html = response.read().decode("utf-8")
+        self.assertIn(
+            'id="runtime-badge" class="quiet-badge">LOCAL READ-ONLY CONSOLE',
+            html,
+        )
+        self.assertNotIn("LIVE TESTNET RUNTIME", html)
+        self.assertNotIn('class="stage is-active" data-stage="simulate"', html)
+        self.assertNotIn("proof-node cyan is-active", html)
+        self.assertIn('id="metric-simulation">—</strong>', html)
+        self.assertIn('id="mission-total">—</strong>', html)
+        self.assertIn("NO SIMULATION EVIDENCE LOADED", html)
 
 
 if __name__ == "__main__":
