@@ -45,6 +45,8 @@ local_state: REJECTED_FINAL
 retry: FORBIDDEN
 ```
 
+The exact provider-side error body and stable provider error code for this request were not preserved by our sanitized diagnostic runner at the time; the durable evidence retained records HTTP 403 and the resulting local `REJECTED_FINAL` classification.
+
 `REJECTED_FINAL` was a Nexus Vector client state, not a KeeperHub execution record.
 
 ### KeeperHub confirmation
