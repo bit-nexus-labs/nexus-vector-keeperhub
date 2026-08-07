@@ -13,6 +13,26 @@ function boolText(value) {
   return "—";
 }
 
+function renderRuntimeBadge(liveEvidence) {
+  const badge = byId("runtime-badge");
+  if (!badge) return;
+  badge.replaceChildren();
+  badge.className = liveEvidence ? "live-badge" : "quiet-badge";
+  if (liveEvidence) {
+    const dot = document.createElement("i");
+    dot.setAttribute("aria-hidden", "true");
+    badge.append(dot, document.createTextNode(" LIVE TESTNET EVIDENCE"));
+    return;
+  }
+  badge.textContent = "LOCAL READ-ONLY CONSOLE";
+}
+
+function setStage(id, stateClass, statusId, statusText) {
+  const stage = byId(id);
+  if (stage) stage.className = `stage${stateClass ? ` ${stateClass}` : ""}`;
+  text(statusId, statusText);
+}
+
 function effectClass(action, state) {
   if (state === "CHAIN_CONFIRMED" || action === "SKIP_VERIFIED") {
     return "is-verified";
@@ -58,30 +78,89 @@ function renderEffects(effects) {
   }
 }
 
+function renderMissionPlaceholder(stopped) {
+  const list = byId("effect-list");
+  list.replaceChildren();
+  const card = document.createElement("article");
+  card.className = stopped ? "effect-card is-blocked" : "effect-card";
+  const top = document.createElement("div");
+  const label = document.createElement("span");
+  label.textContent = stopped ? "STOP" : "PLAN";
+  const amount = document.createElement("strong");
+  amount.textContent = "—";
+  top.append(label, amount);
+  const copy = document.createElement("p");
+  copy.textContent = stopped
+    ? "Sanitized Mission plan was rejected."
+    : "Sanitized Mission plan not loaded.";
+  card.append(top, copy);
+  list.append(card);
+}
+
 function renderCanary(canary) {
   const loaded = canary.loaded === true;
-  text("metric-simulation", canary.simulation_posts ?? 0);
-  text("metric-broadcast", canary.broadcast_posts ?? 0);
-  text("metric-funds", boolText(canary.funds_moved));
+  const passed = loaded && canary.status === "PASS";
+  const stopped = canary.status === "STOP";
+
+  renderRuntimeBadge(passed);
+  text("metric-simulation", passed ? canary.simulation_posts : "—");
+  text("metric-broadcast", passed ? canary.broadcast_posts : "—");
+  text("metric-funds", passed ? boolText(canary.funds_moved) : "—");
+  text("canary-level", passed ? "LIVE SIMULATION EVIDENCE" : "EVIDENCE NOT LOADED");
   text(
-    "canary-level",
-    loaded ? "LIVE SIMULATION" : "LIVE SIMULATION NOT LOADED"
+    "canary-status",
+    passed
+      ? canary.status
+      : stopped
+        ? "EVIDENCE LOAD STOPPED"
+        : "WAITING FOR SANITIZED EVIDENCE"
   );
-  text("canary-status", canary.status || "WAITING FOR SANITIZED EVIDENCE");
+
+  const panel = byId("canary-panel");
+  if (panel) {
+    panel.className = passed
+      ? "panel canary-panel"
+      : "panel canary-panel is-unloaded";
+  }
 
   const badge = byId("canary-badge");
-  badge.className =
-    loaded && canary.status === "PASS"
-      ? "evidence-badge cyan"
-      : "evidence-badge red";
-  badge.textContent = loaded
-    ? `${canary.status} · NO BROADCAST`
-    : "NOT LOADED";
+  badge.className = passed
+    ? "evidence-badge cyan"
+    : stopped
+      ? "evidence-badge red"
+      : "evidence-badge";
+  badge.textContent = passed ? `${canary.status} · NO BROADCAST` : stopped ? "STOP" : "NOT LOADED";
 
-  if (!loaded) {
+  setStage(
+    "stage-simulate",
+    passed ? "is-active" : "",
+    "stage-simulate-status",
+    passed ? "Live provider evidence" : stopped ? "Evidence load stopped" : "Evidence not loaded"
+  );
+
+  const proofSimulation = byId("proof-simulation");
+  if (proofSimulation) {
+    proofSimulation.className = passed
+      ? "proof-node cyan is-active"
+      : "proof-node cyan";
+  }
+  const proofArrow = byId("proof-plan-arrow");
+  if (proofArrow) proofArrow.className = passed ? "proof-arrow active" : "proof-arrow";
+  text(
+    "proof-simulation-title",
+    passed ? "Provider checked exact effect" : stopped ? "Simulation evidence load stopped" : "Simulation evidence not loaded"
+  );
+  text(
+    "proof-simulation-copy",
+    passed ? "No broadcast · no funds moved" : stopped ? "No provider evidence claim retained" : "No provider evidence claim yet"
+  );
+
+  if (!passed) {
     text(
       "canary-copy",
-      "Start the console with a validated sanitized canary evidence file."
+      stopped
+        ? "Validated evidence was rejected; inspect the read-only error banner."
+        : "Start the console with a validated sanitized canary evidence file."
     );
     text("provider-status", "—");
     text("provider-http", "—");
@@ -89,6 +168,7 @@ function renderCanary(canary) {
     text("provider-gas", "—");
     text("action-sheet", "—");
     text("fingerprint", "—");
+    text("claim-boundary", "NO SIMULATION EVIDENCE LOADED");
     return;
   }
 
@@ -108,14 +188,49 @@ function renderCanary(canary) {
 
 function renderMission(mission) {
   const loaded = mission.loaded === true;
-  text("mission-ref", mission.mission_ref || "runtime-evidence-001");
-  text("mission-state", mission.mission_state || "NOT_LOADED");
-  text("mission-total", `${mission.total_amount || "0.19"} USDC`);
-  renderEffects(Array.isArray(mission.effects) ? mission.effects : []);
+  const stopped = mission.mission_state === "STOP";
+
+  text("mission-ref", loaded ? mission.mission_ref : "—");
+  text("mission-state", loaded ? mission.mission_state : stopped ? "STOP" : "NOT LOADED");
+  text("mission-total", loaded ? `${mission.total_amount} USDC` : "—");
+
+  if (loaded) {
+    renderEffects(Array.isArray(mission.effects) ? mission.effects : []);
+  } else {
+    renderMissionPlaceholder(stopped);
+  }
 
   const badge = byId("mission-badge");
-  badge.className = loaded ? "evidence-badge blue" : "evidence-badge red";
-  badge.textContent = loaded ? "OFFLINE PLAN" : "PLAN NOT LOADED";
+  badge.className = loaded
+    ? "evidence-badge blue"
+    : stopped
+      ? "evidence-badge red"
+      : "evidence-badge";
+  badge.textContent = loaded ? "OFFLINE PLAN" : stopped ? "PLAN STOP" : "PLAN NOT LOADED";
+
+  setStage(
+    "stage-plan",
+    loaded ? "is-complete" : "",
+    "stage-plan-status",
+    loaded ? "Offline state loaded" : stopped ? "Plan load stopped" : "Plan not loaded"
+  );
+
+  const proofPlan = byId("proof-plan");
+  if (proofPlan) {
+    proofPlan.className = loaded ? "proof-node blue is-complete" : "proof-node blue";
+  }
+  text(
+    "proof-plan-title",
+    loaded ? "Mission persisted and classified" : stopped ? "Mission evidence load stopped" : "Mission evidence not loaded"
+  );
+  text(
+    "proof-plan-copy",
+    loaded ? "Zero provider calls" : stopped ? "Rejected local evidence is not treated as proof" : "Waiting for sanitized plan"
+  );
+  text(
+    "continuation-status",
+    loaded ? "CONTINUE ONLY THE MISSING EFFECT" : stopped ? "STOP · REVIEW SANITIZED PLAN" : "WAITING FOR SANITIZED PLAN"
+  );
 }
 
 function renderErrors(errors) {
@@ -127,6 +242,13 @@ function renderErrors(errors) {
   }
   banner.hidden = false;
   text("error-text", errors.join(" · "));
+}
+
+function renderStoppedSnapshot(reason) {
+  text("metric-mode", "READ ONLY");
+  renderCanary({ loaded: false, status: "STOP" });
+  renderMission({ loaded: false, mission_state: "STOP" });
+  renderErrors([reason]);
 }
 
 async function refresh() {
@@ -154,7 +276,7 @@ async function refresh() {
     renderMission(payload.mission || {});
     renderErrors(payload.errors || []);
   } catch (error) {
-    renderErrors([`CONSOLE_REFRESH_FAILED:${error.message}`]);
+    renderStoppedSnapshot(`CONSOLE_REFRESH_FAILED:${error.message}`);
   } finally {
     button.disabled = false;
     button.textContent = "Refresh local state";
