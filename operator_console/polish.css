@@ -1,0 +1,29 @@
+/* Presentation-only hero polish for the read-only Local Operator Console. */
+
+.hero h1 {
+  max-width: 820px;
+  margin-bottom: 12px;
+  font-size: clamp(2.2rem, 3.3vw, 3.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+}
+
+.hero-subtitle {
+  max-width: 780px;
+  margin: 0 0 16px;
+  color: #b9c5d2;
+  font-size: clamp(1.05rem, 1.4vw, 1.25rem);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .hero h1 {
+    max-width: none;
+    font-size: clamp(2.1rem, 14vw, 3.5rem);
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+}
