@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +18,7 @@ SPEC = importlib.util.spec_from_file_location(
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError("SECOND_READONLY_TOOL_IMPORT_FAILED")
 MODULE = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 SENDER = "0x" + "11" * 20
