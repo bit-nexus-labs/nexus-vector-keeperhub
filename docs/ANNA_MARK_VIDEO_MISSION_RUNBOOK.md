@@ -91,13 +91,32 @@ The setup rejects Mark if it equals either the KeeperHub sender or Anna recipien
 
 ## Operator wrapper
 
-Use the PowerShell wrapper:
+The **supported live operator entrypoint** is the PowerShell wrapper:
 
 ```text
 tools/invoke_anna_mark_video_mission.ps1
 ```
 
-For `simulate`, `broadcast`, and `provider-bind`, it loads the existing KeeperHub organization key from the Windows DPAPI CLIXML store and clears `KEEPERHUB_API_KEY` afterward.
+Do not use the lower-level Python runner directly during the live video Mission.
+
+Before `simulate` or `broadcast`, the wrapper first runs `anna_mark_video_operator_preflight.py`. This preflight reads only local durable SQLite state and performs zero network calls. It runs **before the DPAPI credential is loaded**.
+
+The preflight allows:
+
+- a first simulation only when no simulation authorization has been consumed;
+- a durable already-eligible simulation receipt to be read without another simulation POST;
+- one broadcast attempt only when simulation is durably eligible, the Attempt is still `PREPARED`, no broadcast authorization has been consumed, and no provider reference exists.
+
+The preflight blocks:
+
+- simulation `REJECTED_FINAL`;
+- simulation `CLAIMED` / `OUTCOME_UNKNOWN`;
+- any consumed/ambiguous broadcast;
+- any Attempt that is no longer fresh `PREPARED` for broadcast.
+
+A blocked preflight does not load the KeeperHub API key and does not enter the execution runner.
+
+For `simulate`, `broadcast`, and `provider-bind`, the wrapper loads the existing KeeperHub organization key from the Windows DPAPI CLIXML store and clears `KEEPERHUB_API_KEY` afterward.
 
 `prepare`, `status`, and `verify` do not need the KeeperHub API key.
 
@@ -267,6 +286,8 @@ At any point, use:
 ```
 
 This is local-only and performs zero network calls.
+
+If simulation is `CLAIMED`, `OUTCOME_UNKNOWN`, or `REJECTED_FINAL`, do not retry it. The operator preflight will stop before credential loading or provider transport.
 
 If a broadcast outcome is ambiguous:
 
