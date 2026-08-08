@@ -21,15 +21,20 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $pythonTool = Join-Path $PSScriptRoot 'anna_mark_video_mission.py'
+$preflightTool = Join-Path $PSScriptRoot 'anna_mark_video_operator_preflight.py'
 $credentialPath = Join-Path $env:LOCALAPPDATA 'NexusVector\Secrets\keeperhub_organization_api_key.credential.xml'
 
 if (-not (Test-Path -LiteralPath $pythonTool -PathType Leaf)) {
     throw 'Anna/Mark video Mission tool was not found.'
 }
+if (-not (Test-Path -LiteralPath $preflightTool -PathType Leaf)) {
+    throw 'Anna/Mark operator preflight tool was not found.'
+}
 
 $effectCommands = @('simulate', 'broadcast', 'provider-bind', 'verify')
 $approvalCommands = @('simulate', 'broadcast')
 $keyCommands = @('simulate', 'broadcast', 'provider-bind')
+$preflightCommands = @('simulate', 'broadcast')
 
 if ($effectCommands -contains $Command -and [string]::IsNullOrWhiteSpace($Effect)) {
     throw "Command '$Command' requires -Effect anna|mark."
@@ -50,6 +55,18 @@ if ($approvalCommands -contains $Command) {
 }
 if ($Command -eq 'broadcast') {
     $arguments += '--approve-testnet-write'
+}
+
+# Recovery / duplicate-prevention gate. This performs local SQLite reads only.
+# On STOP, the lower-level execution runner is never entered and no credential
+# is loaded into the process environment.
+if ($preflightCommands -contains $Command) {
+    $preflightOutput = & python $preflightTool $Command --run-ref $RunRef --effect $Effect
+    $preflightExit = $LASTEXITCODE
+    if ($preflightExit -ne 0) {
+        $preflightOutput | Write-Output
+        exit $preflightExit
+    }
 }
 
 $bstr = [IntPtr]::Zero
