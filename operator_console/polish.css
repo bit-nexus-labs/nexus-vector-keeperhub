@@ -1,5 +1,9 @@
 /* Presentation-only hero polish for the read-only Local Operator Console. */
 
+main {
+  width: min(1480px, calc(100% - 112px));
+}
+
 .hero h1 {
   max-width: 820px;
   margin-bottom: 12px;
@@ -47,6 +51,10 @@
 }
 
 @media (max-width: 720px) {
+  main {
+    width: min(100% - 24px, 1480px);
+  }
+
   .hero h1 {
     max-width: none;
     font-size: clamp(2.1rem, 14vw, 3.5rem);
