@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSET_ROOT = ROOT / "operator_console"
 
 _ADDRESS_PATTERN = re.compile(r"0x[0-9a-fA-F]{40}")
+_GAS_ESTIMATE_PATTERN = re.compile(r"[1-9][0-9]{0,11}")
 _ALLOWED_BOUNDARY_KEYS = frozenset(
     {
         "authorization_state",
@@ -225,7 +226,12 @@ def validate_canary_evidence(value: dict[str, Any]) -> dict[str, Any]:
     provider = value["provider_summary"]
     if not isinstance(provider, dict) or frozenset(provider) != _CANARY_PROVIDER:
         _fail("INVALID_CANARY_PROVIDER_SHAPE")
-    _require_string(provider["gas_estimate"], "INVALID_GAS_ESTIMATE")
+    gas_estimate = _require_string(
+        provider["gas_estimate"],
+        "INVALID_GAS_ESTIMATE",
+    )
+    if _GAS_ESTIMATE_PATTERN.fullmatch(gas_estimate) is None:
+        _fail("INVALID_GAS_ESTIMATE")
     if provider["http_status"] != 200:
         _fail("INVALID_PROVIDER_HTTP_STATUS")
     if provider["provider_status"] != "simulated":
@@ -285,6 +291,8 @@ def validate_mission_snapshot(value: dict[str, Any]) -> dict[str, Any]:
             _fail("INVALID_EFFECT_STATE")
         if effect["continuation_action"] != "EXECUTE_MISSING":
             _fail("INVALID_CONTINUATION_ACTION")
+        if effect["reason"] != "PLANNED_EFFECT_NOT_DISPATCHED":
+            _fail("INVALID_EFFECT_REASON")
         normalized[ref] = effect
     if set(normalized) != {"anna", "mark"}:
         _fail("INVALID_FLAGSHIP_EFFECT_SET")
@@ -379,7 +387,7 @@ class SnapshotProvider:
         return {
             "schema": "nexus-vector.operator-console.snapshot.v1",
             "surface": "LOCAL_READ_ONLY_OPERATOR_CONSOLE",
-            "mode": "LIVE_TESTNET_RUNTIME_READ_ONLY",
+            "mode": "LOCAL_READ_ONLY_CONSOLE",
             "host": HOST,
             "chain": "Base Sepolia",
             "chain_id": 84532,
