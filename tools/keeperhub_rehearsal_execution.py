@@ -155,6 +155,13 @@ def _short(value: str | None) -> str | None:
     return f"{value[:10]}…{value[-6:]}"
 
 
+def _mask_provider_reference(value: str | None) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:20]
+    return f"khref_sha256_{digest}"
+
+
 def _validate_run_ref(value: Any) -> str:
     if not isinstance(value, str) or _RUN_REF_PATTERN.fullmatch(value) is None:
         _fail("INVALID_RUN_REF")
@@ -542,6 +549,9 @@ def prepare_action_sheet(
     _exclusive_json_write(paths["action_sheet"], sheet)
     try:
         _admit_ready_mission(request, paths, now)
+        SQLiteExecutionAttemptStore(paths["attempts"]).initialize()
+        SQLiteKeeperHubAuthorizationLedger(paths["authorizations"]).initialize()
+        SQLiteProviderExecutionReferenceStore(paths["provider_references"]).initialize()
     except Exception:
         _fail("MISSION_PREPARATION_FAILED")
     return _preview(sheet)
@@ -884,7 +894,7 @@ def execute_broadcast(
         "simulation_posts": 0,
         "broadcast_posts": transport.calls,
         "provider_reference_present": True,
-        "provider_reference": _short(reference.provider_reference),
+        "provider_reference": _mask_provider_reference(reference.provider_reference),
         "provider_summary": _safe_provider_summary(transport.last_response),
         "funds_movement": "UNKNOWN_PENDING_CHAIN_VERIFICATION",
         "retry_same_effect": False,
