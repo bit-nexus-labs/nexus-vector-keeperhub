@@ -21,7 +21,7 @@ function renderRuntimeBadge(liveEvidence) {
   if (liveEvidence) {
     const dot = document.createElement("i");
     dot.setAttribute("aria-hidden", "true");
-    badge.append(dot, document.createTextNode(" LIVE TESTNET EVIDENCE"));
+    badge.append(dot, document.createTextNode(" LIVE TESTNET CANARY EVIDENCE"));
     return;
   }
   badge.textContent = "LOCAL READ-ONLY CONSOLE";
@@ -71,7 +71,9 @@ function renderEffects(effects) {
 
     const action = document.createElement("span");
     action.className = "effect-action";
-    action.textContent = effect.continuation_action || "NO_ACTION";
+    action.textContent = `NEXT ACTION · ${
+      effect.continuation_action || "NO_ACTION"
+    }`;
 
     card.append(top, state, action);
     list.append(card);
@@ -106,7 +108,10 @@ function renderCanary(canary) {
   text("metric-simulation", passed ? canary.simulation_posts : "—");
   text("metric-broadcast", passed ? canary.broadcast_posts : "—");
   text("metric-funds", passed ? boolText(canary.funds_moved) : "—");
-  text("canary-level", passed ? "LIVE SIMULATION EVIDENCE" : "EVIDENCE NOT LOADED");
+  text(
+    "canary-level",
+    passed ? "LIVE PROVIDER CANARY EVIDENCE" : "PROVIDER CANARY NOT LOADED"
+  );
   text(
     "canary-status",
     passed
@@ -129,13 +134,21 @@ function renderCanary(canary) {
     : stopped
       ? "evidence-badge red"
       : "evidence-badge";
-  badge.textContent = passed ? `${canary.status} · NO BROADCAST` : stopped ? "STOP" : "NOT LOADED";
+  badge.textContent = passed
+    ? `${canary.status} · NO BROADCAST`
+    : stopped
+      ? "STOP"
+      : "NOT LOADED";
 
   setStage(
     "stage-simulate",
     passed ? "is-active" : "",
     "stage-simulate-status",
-    passed ? "Live provider evidence" : stopped ? "Evidence load stopped" : "Evidence not loaded"
+    passed
+      ? "Independent canary evidence"
+      : stopped
+        ? "Evidence load stopped"
+        : "Evidence not loaded"
   );
 
   const proofSimulation = byId("proof-simulation");
@@ -144,23 +157,29 @@ function renderCanary(canary) {
       ? "proof-node cyan is-active"
       : "proof-node cyan";
   }
-  const proofArrow = byId("proof-plan-arrow");
-  if (proofArrow) proofArrow.className = passed ? "proof-arrow active" : "proof-arrow";
   text(
     "proof-simulation-title",
-    passed ? "Provider checked exact effect" : stopped ? "Simulation evidence load stopped" : "Simulation evidence not loaded"
+    passed
+      ? "Independent provider canary simulated"
+      : stopped
+        ? "Canary evidence load stopped"
+        : "Canary evidence not loaded"
   );
   text(
     "proof-simulation-copy",
-    passed ? "No broadcast · no funds moved" : stopped ? "No provider evidence claim retained" : "No provider evidence claim yet"
+    passed
+      ? `${canary.amount} ${canary.asset} · no broadcast · no funds moved`
+      : stopped
+        ? "No provider evidence claim retained"
+        : "No provider evidence claim yet"
   );
 
   if (!passed) {
     text(
       "canary-copy",
       stopped
-        ? "Validated evidence was rejected; inspect the read-only error banner."
-        : "Start the console with a validated sanitized canary evidence file."
+        ? "Validated provider-canary evidence was rejected; inspect the read-only error banner."
+        : "Start the console with a validated sanitized provider-canary evidence file."
     );
     text("provider-status", "—");
     text("provider-http", "—");
@@ -168,14 +187,14 @@ function renderCanary(canary) {
     text("provider-gas", "—");
     text("action-sheet", "—");
     text("fingerprint", "—");
-    text("claim-boundary", "NO SIMULATION EVIDENCE LOADED");
+    text("claim-boundary", "NO PROVIDER CANARY EVIDENCE LOADED");
     return;
   }
 
   const provider = canary.provider_summary || {};
   text(
     "canary-copy",
-    `${canary.amount} ${canary.asset} on ${canary.chain}; simulation passed without transaction broadcast.`
+    `Independent provider canary: ${canary.amount} ${canary.asset} on ${canary.chain}; simulation passed without transaction broadcast. This does not prove Anna + Mark Mission execution.`
   );
   text("provider-status", provider.provider_status);
   text("provider-http", provider.http_status);
@@ -183,7 +202,10 @@ function renderCanary(canary) {
   text("provider-gas", provider.gas_estimate);
   text("action-sheet", canary.action_sheet_binding);
   text("fingerprint", canary.request_fingerprint_binding);
-  text("claim-boundary", "SIMULATION ONLY · NOT TRANSACTION EVIDENCE");
+  text(
+    "claim-boundary",
+    "PROVIDER CANARY ONLY · NOT MISSION EXECUTION OR TRANSACTION EVIDENCE"
+  );
 }
 
 function renderMission(mission) {
@@ -191,7 +213,10 @@ function renderMission(mission) {
   const stopped = mission.mission_state === "STOP";
 
   text("mission-ref", loaded ? mission.mission_ref : "—");
-  text("mission-state", loaded ? mission.mission_state : stopped ? "STOP" : "NOT LOADED");
+  text(
+    "mission-state",
+    loaded ? mission.mission_state : stopped ? "STOP" : "NOT LOADED"
+  );
   text("mission-total", loaded ? `${mission.total_amount} USDC` : "—");
 
   if (loaded) {
@@ -206,30 +231,52 @@ function renderMission(mission) {
     : stopped
       ? "evidence-badge red"
       : "evidence-badge";
-  badge.textContent = loaded ? "OFFLINE PLAN" : stopped ? "PLAN STOP" : "PLAN NOT LOADED";
+  badge.textContent = loaded
+    ? "OFFLINE PLAN"
+    : stopped
+      ? "PLAN STOP"
+      : "PLAN NOT LOADED";
 
   setStage(
     "stage-plan",
     loaded ? "is-complete" : "",
     "stage-plan-status",
-    loaded ? "Offline state loaded" : stopped ? "Plan load stopped" : "Plan not loaded"
+    loaded
+      ? "Offline Mission plan evidence"
+      : stopped
+        ? "Plan load stopped"
+        : "Plan not loaded"
   );
 
   const proofPlan = byId("proof-plan");
   if (proofPlan) {
-    proofPlan.className = loaded ? "proof-node blue is-complete" : "proof-node blue";
+    proofPlan.className = loaded
+      ? "proof-node blue is-complete"
+      : "proof-node blue";
   }
   text(
     "proof-plan-title",
-    loaded ? "Mission persisted and classified" : stopped ? "Mission evidence load stopped" : "Mission evidence not loaded"
+    loaded
+      ? "Offline Mission plan persisted and classified"
+      : stopped
+        ? "Mission evidence load stopped"
+        : "Mission evidence not loaded"
   );
   text(
     "proof-plan-copy",
-    loaded ? "Zero provider calls" : stopped ? "Rejected local evidence is not treated as proof" : "Waiting for sanitized plan"
+    loaded
+      ? "Anna + Mark · zero provider calls"
+      : stopped
+        ? "Rejected local evidence is not treated as proof"
+        : "Waiting for sanitized plan"
   );
   text(
     "continuation-status",
-    loaded ? "CONTINUE ONLY THE MISSING EFFECT" : stopped ? "STOP · REVIEW SANITIZED PLAN" : "WAITING FOR SANITIZED PLAN"
+    loaded
+      ? "CONTINUE ONLY THE MISSING EFFECT"
+      : stopped
+        ? "STOP · REVIEW SANITIZED PLAN"
+        : "WAITING FOR SANITIZED PLAN"
   );
 }
 
