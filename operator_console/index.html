@@ -32,7 +32,7 @@
       <div>
         <p class="eyebrow">Controlled runtime evidence</p>
         <h1>Live runtime, clearly bounded.</h1>
-        <p class="hero-subtitle">Simulation, approval, broadcast, and chain proof are shown as separate evidence levels.</p>
+        <p class="hero-subtitle">Mission planning, provider canary evidence, approval, broadcast, and chain proof are shown as separate evidence boundaries.</p>
         <p class="hero-copy">This console renders sanitized evidence from local files. The browser has no KeeperHub transport, credentials, signing, broadcast, or write endpoints.</p>
       </div>
       <aside class="authority-card" aria-label="Current authority boundary">
@@ -43,18 +43,13 @@
       </aside>
     </section>
 
-    <section class="stage-rail" aria-label="Runtime evidence stages">
-      <div id="stage-plan" class="stage" data-stage="plan"><span>01</span><strong>Plan</strong><small id="stage-plan-status">Plan not loaded</small></div>
-      <div class="stage-arrow" aria-hidden="true">→</div>
-      <div id="stage-simulate" class="stage" data-stage="simulate"><span>02</span><strong>Simulate</strong><small id="stage-simulate-status">Evidence not loaded</small></div>
-      <div class="stage-arrow" aria-hidden="true">→</div>
-      <div class="stage" data-stage="approve"><span>03</span><strong>Approve</strong><small>Separate authority</small></div>
-      <div class="stage-arrow" aria-hidden="true">→</div>
-      <div class="stage" data-stage="broadcast"><span>04</span><strong>Broadcast</strong><small>Testnet write</small></div>
-      <div class="stage-arrow" aria-hidden="true">→</div>
-      <div class="stage" data-stage="verify"><span>05</span><strong>Verify</strong><small>Independent chain proof</small></div>
-      <div class="stage-arrow" aria-hidden="true">→</div>
-      <div class="stage" data-stage="complete"><span>06</span><strong>Complete</strong><small>Replay-safe</small></div>
+    <section class="stage-rail" aria-label="Evidence and authority boundaries">
+      <div id="stage-plan" class="stage" data-stage="plan"><span>01</span><strong>Mission Plan</strong><small id="stage-plan-status">Plan not loaded</small></div>
+      <div id="stage-simulate" class="stage" data-stage="simulate"><span>02</span><strong>Provider Canary</strong><small id="stage-simulate-status">Evidence not loaded</small></div>
+      <div class="stage" data-stage="approve"><span>03</span><strong>Approval</strong><small>Future Mission authority</small></div>
+      <div class="stage" data-stage="broadcast"><span>04</span><strong>Broadcast</strong><small>Future Mission write</small></div>
+      <div class="stage" data-stage="verify"><span>05</span><strong>Chain Verify</strong><small>Future chain proof</small></div>
+      <div class="stage" data-stage="complete"><span>06</span><strong>Complete</strong><small>Future replay-safe</small></div>
     </section>
 
     <section class="metrics" aria-label="Runtime safety summary">
@@ -64,19 +59,19 @@
         <small>No mutation endpoints</small>
       </article>
       <article class="metric cyan">
-        <span>Simulation POSTs</span>
+        <span>Canary simulation POSTs</span>
         <strong id="metric-simulation">—</strong>
-        <small>Sanitized evidence</small>
+        <small>Sanitized provider evidence</small>
       </article>
       <article class="metric amber">
-        <span>Broadcast POSTs</span>
+        <span>Canary broadcast POSTs</span>
         <strong id="metric-broadcast">—</strong>
-        <small>Sanitized evidence</small>
+        <small>Sanitized provider evidence</small>
       </article>
       <article class="metric green">
-        <span>Funds moved</span>
+        <span>Canary funds moved</span>
         <strong id="metric-funds">—</strong>
-        <small>Sanitized evidence</small>
+        <small>Sanitized provider evidence</small>
       </article>
     </section>
 
@@ -84,7 +79,7 @@
       <article id="canary-panel" class="panel canary-panel is-unloaded">
         <header class="panel-heading">
           <div>
-            <p class="section-label">Provider evidence</p>
+            <p class="section-label">Independent provider evidence</p>
             <h2>Simulation Canary</h2>
           </div>
           <span id="canary-badge" class="evidence-badge">NOT LOADED</span>
@@ -93,9 +88,9 @@
         <div class="active-operation">
           <div class="operation-orb" aria-hidden="true"><span></span></div>
           <div>
-            <p id="canary-level" class="operation-level">EVIDENCE NOT LOADED</p>
+            <p id="canary-level" class="operation-level">PROVIDER CANARY NOT LOADED</p>
             <h3 id="canary-status">Waiting for sanitized evidence</h3>
-            <p id="canary-copy">No local evidence file has been loaded yet.</p>
+            <p id="canary-copy">No local provider-canary evidence file has been loaded yet.</p>
           </div>
         </div>
 
@@ -110,7 +105,7 @@
 
         <div class="claim-boundary">
           <span>Evidence claim boundary</span>
-          <strong id="claim-boundary">NO SIMULATION EVIDENCE LOADED</strong>
+          <strong id="claim-boundary">NO PROVIDER CANARY EVIDENCE LOADED</strong>
         </div>
       </article>
 
@@ -139,7 +134,7 @@
         <div class="continuation-line">
           <span class="neon-arrow" aria-hidden="true">↓</span>
           <div>
-            <small>Deterministic continuation</small>
+            <small>Plan continuation policy</small>
             <strong id="continuation-status">WAITING FOR SANITIZED PLAN</strong>
           </div>
         </div>
@@ -149,35 +144,32 @@
     <section class="evidence-flow panel">
       <header class="panel-heading">
         <div>
-          <p class="section-label">Proof ladder</p>
-          <h2>Every green state means something precise</h2>
+          <p class="section-label">Evidence boundaries</p>
+          <h2>Each evidence level proves only what it observed.</h2>
         </div>
         <button id="refresh" class="refresh-button" type="button">Refresh local state</button>
       </header>
 
       <div class="proof-ladder">
         <article id="proof-plan" class="proof-node blue">
-          <span>OFFLINE PLAN</span>
+          <span>MISSION PLAN EVIDENCE</span>
           <strong id="proof-plan-title">Mission evidence not loaded</strong>
           <small id="proof-plan-copy">Waiting for sanitized plan</small>
         </article>
-        <div id="proof-plan-arrow" class="proof-arrow" aria-hidden="true">→</div>
         <article id="proof-simulation" class="proof-node cyan">
-          <span>LIVE SIMULATION</span>
-          <strong id="proof-simulation-title">Simulation evidence not loaded</strong>
+          <span>PROVIDER CANARY EVIDENCE</span>
+          <strong id="proof-simulation-title">Canary evidence not loaded</strong>
           <small id="proof-simulation-copy">No provider evidence claim yet</small>
         </article>
-        <div class="proof-arrow" aria-hidden="true">→</div>
         <article class="proof-node purple">
-          <span>PROVIDER ACKNOWLEDGED</span>
-          <strong>Execution reference persisted</strong>
-          <small>Chain result still pending</small>
+          <span>MISSION EXECUTION EVIDENCE</span>
+          <strong>Not loaded in this console phase</strong>
+          <small>No broadcast claim for Anna + Mark</small>
         </article>
-        <div class="proof-arrow" aria-hidden="true">→</div>
         <article class="proof-node green">
-          <span>CHAIN VERIFIED</span>
-          <strong>Exact ERC-20 transfer confirmed</strong>
-          <small>Only then may restart skip it</small>
+          <span>CHAIN VERIFICATION EVIDENCE</span>
+          <strong>Not loaded in this console phase</strong>
+          <small>No chain-confirmed claim for Anna + Mark</small>
         </article>
       </div>
     </section>
