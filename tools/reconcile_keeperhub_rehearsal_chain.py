@@ -1,14 +1,14 @@
-"""Reconcile a KeeperHub rehearsal from independent Base Sepolia evidence.
+"""Reconcile a KeeperHub rehearsal from independently observed Base Sepolia evidence.
 
-The tool never calls KeeperHub and never needs a KeeperHub API key. It reads the
-existing private rehearsal stores plus the local wallet registry, observes one
-public Base Sepolia transaction through the official Base JSON-RPC endpoint,
-and delegates all durable state transitions to ExecutionReconciliationService.
+The chain verifier never calls KeeperHub and never accepts a transaction hash
+from the operator. It requires an immutable provider transaction binding that
+was captured separately from the durable attempt/provider-reference identity.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -28,10 +28,6 @@ from nexus_vector.application.execution_reconciliation import (  # noqa: E402
     ReconciliationOutcome,
 )
 from nexus_vector.domain.execution_attempts import ExecutionAttemptState  # noqa: E402
-from nexus_vector.domain.mission_models import EffectState, MissionState  # noqa: E402
-from nexus_vector.domain.verification_evidence import (  # noqa: E402
-    VerificationObservationStatus,
-)
 from nexus_vector.integrations.base_sepolia_rpc_verification import (  # noqa: E402
     BASE_SEPOLIA_CHAIN_ID,
     BASE_SEPOLIA_RPC_URL,
@@ -43,9 +39,13 @@ from nexus_vector.persistence.sqlite_execution_attempt_store import (  # noqa: E
     SQLiteExecutionAttemptStore,
 )
 from nexus_vector.persistence.sqlite_mission_store import SQLiteMissionStore  # noqa: E402
+from nexus_vector.persistence.sqlite_provider_execution_reference_store import (  # noqa: E402
+    SQLiteProviderExecutionReferenceStore,
+)
 
 _TOOL_SCHEMA = "nexus-vector.base-sepolia-independent-verification.v1"
 _REHEARSAL_SCHEMA = "nexus-vector.keeperhub-rehearsal-execution.v1"
+_BINDING_SCHEMA = "nexus-vector.keeperhub-provider-transaction-binding.v1"
 _BASE_SEPOLIA_USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e".lower()
 _MINIMUM_CONFIRMATIONS = 2
 _MAX_JSON_BYTES = 65_536
@@ -89,6 +89,12 @@ def _validate_address(value: Any, code: str) -> str:
 def _mask_address(value: str) -> str:
     checked = _validate_address(value, "INVALID_ADDRESS_FOR_MASKING")
     return f"{checked[:8]}…{checked[-6:]}"
+
+
+def _provider_reference_fingerprint(value: str) -> str:
+    if not isinstance(value, str) or not value:
+        _fail("INVALID_PROVIDER_REFERENCE")
+    return "khref_sha256_" + hashlib.sha256(value.encode("utf-8")).hexdigest()[:20]
 
 
 def _read_json(path: Path, *, missing_code: str, corrupt_code: str) -> dict[str, Any]:
@@ -161,7 +167,7 @@ def _load_rehearsal_context(
     run_ref: str,
     *,
     base_root: Path | None = None,
-) -> tuple[dict[str, Any], SQLiteMissionStore, SQLiteExecutionAttemptStore, object, object]:
+):
     root = _rehearsal_root(run_ref, base_root)
     sheet = _read_json(
         root / "private_action_sheet.json",
@@ -185,7 +191,11 @@ def _load_rehearsal_context(
     mission_key = sheet.get("mission_key")
     attempt_id = sheet.get("attempt_id")
     effect_id = sheet.get("effect_id")
-    if not all(isinstance(value, str) and value for value in (mission_key, attempt_id, effect_id)):
+    request_fingerprint = sheet.get("request_fingerprint")
+    if not all(
+        isinstance(value, str) and value
+        for value in (mission_key, attempt_id, effect_id, request_fingerprint)
+    ):
         _fail("ACTION_SHEET_IDENTITY_INVALID")
 
     mission_store = SQLiteMissionStore(root / "missions.sqlite3")
@@ -204,30 +214,97 @@ def _load_rehearsal_context(
     )
     if effect is None:
         _fail("EFFECT_NOT_FOUND")
+    recipient = _validate_address(sheet.get("recipient_address"), "INVALID_ACTION_SHEET_RECIPIENT")
     if (
         effect.chain_id != BASE_SEPOLIA_CHAIN_ID
         or effect.token_address != token
-        or effect.recipient != _validate_address(sheet.get("recipient_address"), "INVALID_ACTION_SHEET_RECIPIENT")
+        or effect.recipient != recipient
         or effect.amount_base_units != 1
     ):
         _fail("DURABLE_EFFECT_MISMATCH")
-    return sheet, mission_store, attempt_store, mission, effect
+
+    reference = SQLiteProviderExecutionReferenceStore(
+        root / "provider_references.sqlite3"
+    ).get(attempt_id)
+    if reference is None:
+        _fail("PROVIDER_REFERENCE_NOT_FOUND")
+    if reference.request_fingerprint != request_fingerprint:
+        _fail("PROVIDER_REFERENCE_REQUEST_MISMATCH")
+    return root, sheet, mission_store, attempt_store, effect, reference
+
+
+def _load_transaction_binding(
+    *,
+    root: Path,
+    run_ref: str,
+    sheet: Mapping[str, Any],
+    reference: Any,
+) -> tuple[str, str | None]:
+    binding = _read_json(
+        root / "provider_transaction_binding.json",
+        missing_code="PROVIDER_TRANSACTION_BINDING_NOT_FOUND",
+        corrupt_code="PROVIDER_TRANSACTION_BINDING_INVALID",
+    )
+    required = {
+        "schema",
+        "run_ref",
+        "mission_key",
+        "effect_id",
+        "attempt_id",
+        "request_fingerprint",
+        "provider_namespace",
+        "provider_reference_fingerprint",
+        "provider_status",
+        "transaction_hash",
+        "transaction_link",
+        "bound_at_utc",
+    }
+    if set(binding.keys()) != required:
+        _fail("PROVIDER_TRANSACTION_BINDING_FIELD_MISMATCH")
+    if binding.get("schema") != _BINDING_SCHEMA:
+        _fail("PROVIDER_TRANSACTION_BINDING_SCHEMA_MISMATCH")
+    expected = {
+        "run_ref": run_ref,
+        "mission_key": sheet["mission_key"],
+        "effect_id": sheet["effect_id"],
+        "attempt_id": sheet["attempt_id"],
+        "request_fingerprint": sheet["request_fingerprint"],
+        "provider_namespace": reference.provider_namespace,
+        "provider_reference_fingerprint": _provider_reference_fingerprint(
+            reference.provider_reference
+        ),
+        "provider_status": "completed",
+    }
+    for field, value in expected.items():
+        if binding.get(field) != value:
+            _fail("PROVIDER_TRANSACTION_BINDING_IDENTITY_MISMATCH")
+    transaction_hash = _validate_hash(binding.get("transaction_hash"))
+    transaction_link = binding.get("transaction_link")
+    if transaction_link is not None and not isinstance(transaction_link, str):
+        _fail("PROVIDER_TRANSACTION_BINDING_LINK_INVALID")
+    if not isinstance(binding.get("bound_at_utc"), str):
+        _fail("PROVIDER_TRANSACTION_BINDING_TIMESTAMP_INVALID")
+    return transaction_hash, transaction_link
 
 
 def reconcile_rehearsal_chain(
     *,
     run_ref: str,
-    transaction_hash: str,
     base_root: Path | None = None,
     wallet_path: Path | None = None,
     observed_at: datetime | None = None,
     transport: Any | None = None,
 ) -> dict[str, Any]:
     checked_run_ref = _validate_run_ref(run_ref)
-    checked_hash = _validate_hash(transaction_hash)
-    sheet, mission_store, attempt_store, mission, effect = _load_rehearsal_context(
+    root, sheet, mission_store, attempt_store, effect, reference = _load_rehearsal_context(
         checked_run_ref,
         base_root=base_root,
+    )
+    transaction_hash, transaction_link = _load_transaction_binding(
+        root=root,
+        run_ref=checked_run_ref,
+        sheet=sheet,
+        reference=reference,
     )
     expected_sender, registered_recipient = _load_wallet_context(wallet_path)
     if effect.recipient != registered_recipient:
@@ -246,13 +323,12 @@ def reconcile_rehearsal_chain(
     selected_transport = transport or BaseSepoliaJsonRpcTransport()
     verifier = BaseSepoliaErc20TransferVerifier(
         selected_transport,
-        transaction_hash=checked_hash,
+        transaction_hash=transaction_hash,
         expected_token_address=effect.token_address,
         expected_sender=expected_sender,
         expected_recipient=effect.recipient,
         expected_amount_base_units=effect.amount_base_units,
     )
-    now = observed_at or _utc_now()
     try:
         result = ExecutionReconciliationService(
             mission_store,
@@ -262,7 +338,7 @@ def reconcile_rehearsal_chain(
             expected_sender=expected_sender,
             minimum_confirmations=_MINIMUM_CONFIRMATIONS,
             verifier=verifier,
-            observed_at_utc=now,
+            observed_at_utc=observed_at or _utc_now(),
         )
     except ExecutionReconciliationError as error:
         return {
@@ -270,7 +346,7 @@ def reconcile_rehearsal_chain(
             "status": "STOP",
             "run_ref": checked_run_ref,
             "reason": error.code,
-            "transaction_hash": checked_hash,
+            "transaction_hash": transaction_hash,
             "rpc_endpoint": BASE_SEPOLIA_RPC_URL,
             "rpc_calls": getattr(selected_transport, "calls", None),
             "keeperhub_calls": 0,
@@ -291,8 +367,10 @@ def reconcile_rehearsal_chain(
             "rpc_calls": getattr(selected_transport, "calls", None),
             "keeperhub_calls": 0,
             "broadcast_posts": 0,
-            "transaction_hash": checked_hash,
-            "transaction_link": f"https://sepolia.basescan.org/tx/{checked_hash}",
+            "provider_transaction_binding": True,
+            "transaction_hash": transaction_hash,
+            "transaction_link": transaction_link
+            or f"https://sepolia.basescan.org/tx/{transaction_hash}",
             "token_address": effect.token_address,
             "sender_masked": _mask_address(expected_sender),
             "recipient_masked": _mask_address(effect.recipient),
@@ -324,7 +402,8 @@ def reconcile_rehearsal_chain(
         "rpc_calls": getattr(selected_transport, "calls", None),
         "keeperhub_calls": 0,
         "broadcast_posts": 0,
-        "transaction_hash": checked_hash,
+        "provider_transaction_binding": True,
+        "transaction_hash": transaction_hash,
         "observation_status": (
             observation.status.value if observation is not None else None
         ),
@@ -350,24 +429,18 @@ def _emit(value: Mapping[str, Any]) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Independently verify one KeeperHub rehearsal transaction on Base Sepolia "
-            "and reconcile durable Nexus Vector state."
+            "Independently verify the durably bound KeeperHub rehearsal transaction "
+            "on Base Sepolia and reconcile Nexus Vector state."
         )
     )
     parser.add_argument("--run-ref", required=True)
-    parser.add_argument("--transaction-hash", required=True)
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
     try:
-        return _emit(
-            reconcile_rehearsal_chain(
-                run_ref=args.run_ref,
-                transaction_hash=args.transaction_hash,
-            )
-        )
+        return _emit(reconcile_rehearsal_chain(run_ref=args.run_ref))
     except (RehearsalChainReconciliationError, BaseSepoliaVerificationError) as error:
         return _emit(
             {
