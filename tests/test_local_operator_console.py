@@ -235,7 +235,27 @@ class LocalServerTests(unittest.TestCase):
         self.assertNotIn("proof-node cyan is-active", html)
         self.assertIn('id="metric-simulation">—</strong>', html)
         self.assertIn('id="mission-total">—</strong>', html)
-        self.assertIn("NO SIMULATION EVIDENCE LOADED", html)
+        self.assertIn("NO PROVIDER CANARY EVIDENCE LOADED", html)
+
+    def test_canary_and_mission_claims_are_visually_separated(self) -> None:
+        with urlopen(f"{self.base_url}/", timeout=2) as response:
+            html = response.read().decode("utf-8")
+        with urlopen(f"{self.base_url}/app.js", timeout=2) as response:
+            script = response.read().decode("utf-8")
+        self.assertIn("MISSION PLAN EVIDENCE", html)
+        self.assertIn("PROVIDER CANARY EVIDENCE", html)
+        self.assertIn(
+            "Each evidence level proves only what it observed.",
+            html,
+        )
+        self.assertIn("No broadcast claim for Anna + Mark", html)
+        self.assertNotIn('class="stage-arrow"', html)
+        self.assertIn("NEXT ACTION ·", script)
+        self.assertIn("Independent provider canary", script)
+        self.assertIn(
+            "NOT MISSION EXECUTION OR TRANSACTION EVIDENCE",
+            script,
+        )
 
 
 if __name__ == "__main__":
