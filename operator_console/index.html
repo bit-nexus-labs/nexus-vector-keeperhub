@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Read-only Nexus Vector local operator console for sanitized testnet runtime evidence.">
+  <title>Nexus Vector — Local Operator Console</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="polish.css">
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">NV</span>
+      <div>
+        <strong>Nexus Vector</strong>
+        <small>Local Operator Console</small>
+      </div>
+    </div>
+    <div class="runtime-identity">
+      <span id="runtime-badge" class="quiet-badge">LOCAL READ-ONLY CONSOLE</span>
+      <span class="quiet-badge">LOCALHOST ONLY</span>
+      <span class="quiet-badge safe">MAINNET BLOCKED</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Controlled runtime evidence</p>
+        <h1>Live runtime, clearly bounded.</h1>
+        <p class="hero-subtitle">Mission planning, provider canary evidence, approval, broadcast, and chain proof are shown as separate evidence boundaries.</p>
+        <p class="hero-copy">This console renders sanitized evidence from local files. The browser has no KeeperHub transport, credentials, signing, broadcast, or write endpoints.</p>
+      </div>
+      <aside class="authority-card" aria-label="Current authority boundary">
+        <div class="authority-line"><span>Surface</span><strong>READ ONLY</strong></div>
+        <div class="authority-line"><span>Network</span><strong>BASE SEPOLIA</strong></div>
+        <div class="authority-line"><span>Provider writes</span><strong>DISABLED</strong></div>
+        <div class="authority-line"><span>Funds movement</span><strong>IMPOSSIBLE HERE</strong></div>
+      </aside>
+    </section>
+
+    <section class="stage-rail" aria-label="Evidence and authority boundaries">
+      <div id="stage-plan" class="stage" data-stage="plan"><span>01</span><strong>Mission Plan</strong><small id="stage-plan-status">Plan not loaded</small></div>
+      <div id="stage-simulate" class="stage" data-stage="simulate"><span>02</span><strong>Provider Canary</strong><small id="stage-simulate-status">Evidence not loaded</small></div>
+      <div class="stage" data-stage="approve"><span>03</span><strong>Approval</strong><small>Future Mission authority</small></div>
+      <div class="stage" data-stage="broadcast"><span>04</span><strong>Broadcast</strong><small>Future Mission write</small></div>
+      <div class="stage" data-stage="verify"><span>05</span><strong>Chain Verify</strong><small>Future chain proof</small></div>
+      <div class="stage" data-stage="complete"><span>06</span><strong>Complete</strong><small>Future replay-safe</small></div>
+    </section>
+
+    <section class="metrics" aria-label="Runtime safety summary">
+      <article class="metric">
+        <span>Console mode</span>
+        <strong id="metric-mode">READ ONLY</strong>
+        <small>No mutation endpoints</small>
+      </article>
+      <article class="metric cyan">
+        <span>Canary simulation POSTs</span>
+        <strong id="metric-simulation">—</strong>
+        <small>Sanitized provider evidence</small>
+      </article>
+      <article class="metric amber">
+        <span>Canary broadcast POSTs</span>
+        <strong id="metric-broadcast">—</strong>
+        <small>Sanitized provider evidence</small>
+      </article>
+      <article class="metric green">
+        <span>Canary funds moved</span>
+        <strong id="metric-funds">—</strong>
+        <small>Sanitized provider evidence</small>
+      </article>
+    </section>
+
+    <section class="workspace">
+      <article id="canary-panel" class="panel canary-panel is-unloaded">
+        <header class="panel-heading">
+          <div>
+            <p class="section-label">Independent provider evidence</p>
+            <h2>Simulation Canary</h2>
+          </div>
+          <span id="canary-badge" class="evidence-badge">NOT LOADED</span>
+        </header>
+
+        <div class="active-operation">
+          <div class="operation-orb" aria-hidden="true"><span></span></div>
+          <div>
+            <p id="canary-level" class="operation-level">PROVIDER CANARY NOT LOADED</p>
+            <h3 id="canary-status">Waiting for sanitized evidence</h3>
+            <p id="canary-copy">No local provider-canary evidence file has been loaded yet.</p>
+          </div>
+        </div>
+
+        <dl class="fact-grid">
+          <div><dt>Provider status</dt><dd id="provider-status">—</dd></div>
+          <div><dt>HTTP</dt><dd id="provider-http">—</dd></div>
+          <div><dt>Would revert</dt><dd id="provider-revert">—</dd></div>
+          <div><dt>Gas estimate</dt><dd id="provider-gas">—</dd></div>
+          <div><dt>Action sheet</dt><dd id="action-sheet">—</dd></div>
+          <div><dt>Fingerprint</dt><dd id="fingerprint">—</dd></div>
+        </dl>
+
+        <div class="claim-boundary">
+          <span>Evidence claim boundary</span>
+          <strong id="claim-boundary">NO PROVIDER CANARY EVIDENCE LOADED</strong>
+        </div>
+      </article>
+
+      <article class="panel mission-panel">
+        <header class="panel-heading">
+          <div>
+            <p class="section-label">Durable Mission plan</p>
+            <h2>Anna + Mark</h2>
+          </div>
+          <span id="mission-badge" class="evidence-badge">PLAN NOT LOADED</span>
+        </header>
+
+        <div class="mission-meta">
+          <div><span>Mission</span><strong id="mission-ref">—</strong></div>
+          <div><span>State</span><strong id="mission-state">NOT LOADED</strong></div>
+          <div><span>Total</span><strong id="mission-total">—</strong></div>
+        </div>
+
+        <div id="effect-list" class="effect-list" aria-live="polite">
+          <article class="effect-card">
+            <div><span>PLAN</span><strong>—</strong></div>
+            <p>Sanitized Mission plan not loaded.</p>
+          </article>
+        </div>
+
+        <div class="continuation-line">
+          <span class="neon-arrow" aria-hidden="true">↓</span>
+          <div>
+            <small>Plan continuation policy</small>
+            <strong id="continuation-status">WAITING FOR SANITIZED PLAN</strong>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="evidence-flow panel">
+      <header class="panel-heading">
+        <div>
+          <p class="section-label">Evidence boundaries</p>
+          <h2>Each evidence level proves only what it observed.</h2>
+        </div>
+        <button id="refresh" class="refresh-button" type="button">Refresh local state</button>
+      </header>
+
+      <div class="proof-ladder">
+        <article id="proof-plan" class="proof-node blue">
+          <span>MISSION PLAN EVIDENCE</span>
+          <strong id="proof-plan-title">Mission evidence not loaded</strong>
+          <small id="proof-plan-copy">Waiting for sanitized plan</small>
+        </article>
+        <article id="proof-simulation" class="proof-node cyan">
+          <span>PROVIDER CANARY EVIDENCE</span>
+          <strong id="proof-simulation-title">Canary evidence not loaded</strong>
+          <small id="proof-simulation-copy">No provider evidence claim yet</small>
+        </article>
+        <article class="proof-node purple">
+          <span>MISSION EXECUTION EVIDENCE</span>
+          <strong>Not loaded in this console phase</strong>
+          <small>No broadcast claim for Anna + Mark</small>
+        </article>
+        <article class="proof-node green">
+          <span>CHAIN VERIFICATION EVIDENCE</span>
+          <strong>Not loaded in this console phase</strong>
+          <small>No chain-confirmed claim for Anna + Mark</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="guardrail-grid">
+      <article class="guardrail"><span>01</span><strong>Browser cannot execute</strong><p>No KeeperHub client or credentials exist in browser code.</p></article>
+      <article class="guardrail"><span>02</span><strong>Server is localhost-only</strong><p>The process binds strictly to 127.0.0.1.</p></article>
+      <article class="guardrail"><span>03</span><strong>GET-only surface</strong><p>POST, PUT, PATCH and DELETE are hard-blocked.</p></article>
+      <article class="guardrail"><span>04</span><strong>Sanitized inputs only</strong><p>Unexpected fields, addresses or unsafe claims fail closed.</p></article>
+    </section>
+
+    <section id="error-banner" class="error-banner" hidden aria-live="assertive">
+      <strong>READ-ONLY EVIDENCE LOAD STOPPED</strong>
+      <span id="error-text"></span>
+    </section>
+  </main>
+
+  <footer>
+    <span>Nexus Vector · Mission-Safe Agent Payments</span>
+    <span>LOCAL READ-ONLY CONSOLE · NO LIVE WRITE CAPABILITY</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
