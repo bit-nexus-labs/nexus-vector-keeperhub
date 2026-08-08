@@ -126,6 +126,17 @@ class CanaryValidationTests(unittest.TestCase):
         ):
             validate_canary_evidence(payload)
 
+    def test_rejects_malformed_or_unbounded_gas_estimate(self) -> None:
+        for gas_estimate in ("0", "45415 gas", "1234567890123"):
+            with self.subTest(gas_estimate=gas_estimate):
+                payload = _canary_payload()
+                payload["provider_summary"]["gas_estimate"] = gas_estimate  # type: ignore[index]
+                with self.assertRaisesRegex(
+                    OperatorConsoleError,
+                    "INVALID_GAS_ESTIMATE",
+                ):
+                    validate_canary_evidence(payload)
+
 
 class MissionValidationTests(unittest.TestCase):
     def test_accepts_exact_network_free_plan(self) -> None:
@@ -138,6 +149,15 @@ class MissionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             OperatorConsoleError,
             "MISSION_PROVIDER_ACTIVITY_PRESENT",
+        ):
+            validate_mission_snapshot(payload)
+
+    def test_rejects_unexpected_effect_reason(self) -> None:
+        payload = _mission_payload()
+        payload["effects"][0]["reason"] = "UNREVIEWED_FREE_TEXT"  # type: ignore[index]
+        with self.assertRaisesRegex(
+            OperatorConsoleError,
+            "INVALID_EFFECT_REASON",
         ):
             validate_mission_snapshot(payload)
 
@@ -171,6 +191,11 @@ class MissionValidationTests(unittest.TestCase):
             snapshot["mission"]["evidence_level"],
             "OFFLINE_PLAN_NOT_LOADED",
         )
+
+    def test_empty_snapshot_mode_is_neutral_capability_state(self) -> None:
+        snapshot = SnapshotProvider().snapshot()
+        self.assertEqual(snapshot["mode"], "LOCAL_READ_ONLY_CONSOLE")
+        self.assertNotIn("LIVE", snapshot["mode"])
 
 
 class LocalServerTests(unittest.TestCase):
