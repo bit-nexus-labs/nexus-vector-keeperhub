@@ -7,7 +7,6 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from nexus_vector.domain.mission_models import EffectState, MissionState
 from nexus_vector.integrations.base_sepolia_rpc_verification import (
     BASE_SEPOLIA_CHAIN_ID,
     ERC20_TRANSFER_TOPIC,
@@ -30,6 +29,10 @@ REHEARSAL = load_tool(
     "keeperhub_rehearsal_execution_for_chain_test",
     "tools/keeperhub_rehearsal_execution.py",
 )
+CAPTURE = load_tool(
+    "capture_keeperhub_provider_transaction_binding_for_chain_test",
+    "tools/capture_keeperhub_provider_transaction_binding.py",
+)
 CHAIN = load_tool(
     "reconcile_keeperhub_rehearsal_chain",
     "tools/reconcile_keeperhub_rehearsal_chain.py",
@@ -41,9 +44,11 @@ SENDER = "0x" + "44" * 20
 RECIPIENT = "0x" + "55" * 20
 OTHER_RECIPIENT = "0x" + "66" * 20
 TX_HASH = "0x" + "11" * 32
+OTHER_TX_HASH = "0x" + "99" * 32
 BLOCK_HASH = "0x" + "22" * 32
 EXECUTION_ID = "direct_test_execution_01"
 USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e".lower()
+TX_LINK = f"https://sepolia.basescan.org/tx/{TX_HASH}"
 
 
 def topic_address(address: str) -> str:
@@ -97,6 +102,16 @@ class FakeKeeperHubTransport:
         return self.response
 
 
+class FakeStatusTransport:
+    def __init__(self, response):
+        self.response = response
+        self.calls = 0
+
+    def get_execution_status(self, provider_reference):
+        self.calls += 1
+        return self.response
+
+
 class FakeRpc:
     def __init__(self, *, tx_receipt, latest=102, chain_id=BASE_SEPOLIA_CHAIN_ID):
         self.tx_receipt = tx_receipt
@@ -131,9 +146,14 @@ class RehearsalChainRunnerTests(unittest.TestCase):
         self.wallet_path = Path(self.temp.name) / "wallets.private-local.json"
         self.write_wallet_registry(SENDER, RECIPIENT)
         self.prepare_provider_acknowledged_rehearsal()
+        self.capture_binding()
 
     def tearDown(self):
         self.temp.cleanup()
+
+    @property
+    def binding_path(self):
+        return self.base_root / RUN_REF / "provider_transaction_binding.json"
 
     def write_wallet_registry(self, sender, recipient, *, mainnet_blocked=True):
         self.wallet_path.write_text(
@@ -205,15 +225,58 @@ class RehearsalChainRunnerTests(unittest.TestCase):
         )
         self.assertEqual(broadcast["status"], "PASS")
 
+    def capture_binding(self):
+        result = CAPTURE.capture_provider_transaction_binding(
+            api_key="kh_test",
+            run_ref=RUN_REF,
+            base_root=self.base_root,
+            observed_at=T0 + timedelta(minutes=3),
+            http_transport_factory=lambda key: FakeStatusTransport(
+                KeeperHubTransportResponse(
+                    200,
+                    {
+                        "executionId": EXECUTION_ID,
+                        "status": "completed",
+                        "transactionHash": TX_HASH,
+                        "transactionLink": TX_LINK,
+                    },
+                    {"X-Poll-Interval-Hint": "0"},
+                )
+            ),
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(self.binding_path.exists())
+        return result
+
     def reconcile(self, rpc):
         return CHAIN.reconcile_rehearsal_chain(
             run_ref=RUN_REF,
-            transaction_hash=TX_HASH,
             base_root=self.base_root,
             wallet_path=self.wallet_path,
-            observed_at=T0 + timedelta(minutes=3),
+            observed_at=T0 + timedelta(minutes=4),
             transport=rpc,
         )
+
+    def test_binding_is_durable_attempt_scoped_and_status_read_only(self):
+        binding = json.loads(self.binding_path.read_text(encoding="utf-8"))
+        sheet = json.loads(
+            (self.base_root / RUN_REF / "private_action_sheet.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(binding["attempt_id"], sheet["attempt_id"])
+        self.assertEqual(binding["mission_key"], sheet["mission_key"])
+        self.assertEqual(binding["effect_id"], sheet["effect_id"])
+        self.assertEqual(binding["transaction_hash"], TX_HASH)
+        self.assertEqual(binding["provider_status"], "completed")
+        self.assertTrue(binding["provider_reference_fingerprint"].startswith("khref_sha256_"))
+        self.assertNotIn(EXECUTION_ID, json.dumps(binding, sort_keys=True))
+
+        second = self.capture_binding()
+        self.assertEqual(second["decision"], "ALREADY_BOUND")
+        self.assertEqual(second["status_gets"], 0)
+        self.assertEqual(second["keeperhub_mutating_calls"], 0)
+        self.assertEqual(second["broadcast_posts"], 0)
 
     def test_exact_chain_evidence_completes_durable_mission(self):
         rpc = FakeRpc(tx_receipt=receipt(transfer_log()), latest=102)
@@ -224,6 +287,8 @@ class RehearsalChainRunnerTests(unittest.TestCase):
         self.assertEqual(result["rpc_calls"], 3)
         self.assertEqual(result["keeperhub_calls"], 0)
         self.assertEqual(result["broadcast_posts"], 0)
+        self.assertTrue(result["provider_transaction_binding"])
+        self.assertEqual(result["transaction_hash"], TX_HASH)
         self.assertEqual(result["confirmations"], 3)
         self.assertEqual(result["amount_base_units"], 1)
         self.assertEqual(result["attempt_state"], "VERIFIED")
@@ -247,6 +312,27 @@ class RehearsalChainRunnerTests(unittest.TestCase):
         self.assertEqual(second["attempt_state"], "VERIFIED")
         self.assertEqual(second["effect_state"], "CHAIN_CONFIRMED")
         self.assertEqual(second["mission_state"], "COMPLETED")
+
+    def test_missing_binding_stops_before_rpc(self):
+        self.binding_path.unlink()
+        rpc = ExplodingRpc()
+        with self.assertRaises(CHAIN.RehearsalChainReconciliationError) as caught:
+            self.reconcile(rpc)
+        self.assertEqual(caught.exception.code, "PROVIDER_TRANSACTION_BINDING_NOT_FOUND")
+        self.assertEqual(rpc.calls, 0)
+
+    def test_binding_copied_from_other_attempt_is_rejected_before_rpc(self):
+        binding = json.loads(self.binding_path.read_text(encoding="utf-8"))
+        binding["attempt_id"] = "att_" + "aa" * 32
+        self.binding_path.write_text(json.dumps(binding), encoding="utf-8")
+        rpc = ExplodingRpc()
+        with self.assertRaises(CHAIN.RehearsalChainReconciliationError) as caught:
+            self.reconcile(rpc)
+        self.assertEqual(
+            caught.exception.code,
+            "PROVIDER_TRANSACTION_BINDING_IDENTITY_MISMATCH",
+        )
+        self.assertEqual(rpc.calls, 0)
 
     def test_sender_mismatch_blocks_attempt_and_requires_manual_review(self):
         wrong_sender = "0x" + "77" * 20
@@ -318,13 +404,15 @@ class RehearsalChainRunnerTests(unittest.TestCase):
         self.assertEqual(result["broadcast_posts"], 0)
         self.assertFalse(result["retry_broadcast"])
 
-    def test_runner_source_has_no_keeperhub_api_key_or_write_path(self):
+    def test_chain_runner_has_no_operator_transaction_hash_or_keeperhub_write_path(self):
         source = (ROOT / "tools/reconcile_keeperhub_rehearsal_chain.py").read_text(
             encoding="utf-8"
         )
         self.assertNotIn("KEEPERHUB_API_KEY", source)
         self.assertNotIn("post_transfer", source)
         self.assertNotIn("--approve-testnet-write", source)
+        self.assertNotIn("--transaction-hash", source)
+        self.assertIn("provider_transaction_binding.json", source)
         self.assertIn("keeperhub_calls\": 0", source)
 
 
