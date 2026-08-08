@@ -300,7 +300,7 @@ def reconcile_rehearsal_chain(
         checked_run_ref,
         base_root=base_root,
     )
-    transaction_hash, transaction_link = _load_transaction_binding(
+    transaction_hash, _provider_transaction_link = _load_transaction_binding(
         root=root,
         run_ref=checked_run_ref,
         sheet=sheet,
@@ -369,8 +369,7 @@ def reconcile_rehearsal_chain(
             "broadcast_posts": 0,
             "provider_transaction_binding": True,
             "transaction_hash": transaction_hash,
-            "transaction_link": transaction_link
-            or f"https://sepolia.basescan.org/tx/{transaction_hash}",
+            "transaction_link": f"https://sepolia.basescan.org/tx/{transaction_hash}",
             "token_address": effect.token_address,
             "sender_masked": _mask_address(expected_sender),
             "recipient_masked": _mask_address(effect.recipient),
