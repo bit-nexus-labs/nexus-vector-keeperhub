@@ -35,14 +35,14 @@ The read-only console has:
 
 The process removes inherited KeeperHub and approval environment variables before serving the UI.
 
-The browser receives only strictly validated sanitized JSON snapshots selected by the local operator when the server starts.
+The browser receives only strictly validated sanitized JSON snapshots selected by the local operator when the server starts. The backend `mode` describes the console capability (`LOCAL_READ_ONLY_CONSOLE`); evidence state is represented separately and never inferred from the console being running.
 
 ## Visual language
 
 The operator console intentionally differs from the public site:
 
 - graphite runtime surface;
-- restrained cyan neon for live simulation evidence;
+- restrained cyan neon for validated provider-canary evidence;
 - blue for offline/read-only state;
 - amber for future approval gates;
 - purple for future provider acknowledgement;
@@ -92,7 +92,9 @@ funds_moved: false
 claim_boundary: SIMULATION_ONLY_NOT_TRANSACTION_EVIDENCE
 ```
 
-Unexpected fields, address-shaped values, unsafe field names, broadcast activity, funds movement, malformed provider status or weakened claim boundaries are rejected.
+`gas_estimate` must be a positive decimal string of at most 12 digits. Unexpected fields, address-shaped values, unsafe field names, malformed or unbounded gas values, broadcast activity, funds movement, malformed provider status or weakened claim boundaries are rejected.
+
+The provider canary is independent from the Anna + Mark Mission plan. A canary PASS proves only the bounded provider simulation evidence for the fixed `0.000001 USDC` canary effect. It does not prove that the Anna + Mark Mission was simulated, approved, broadcast or chain-confirmed.
 
 ## Accepted Mission snapshot
 
@@ -109,6 +111,9 @@ runtime-evidence-001
 Anna: 0.12 USDC
 Mark: 0.07 USDC
 Mission total: 0.19 USDC
+effect state: PLANNED
+continuation action: EXECUTE_MISSING
+reason: PLANNED_EFFECT_NOT_DISPATCHED
 provider calls: 0
 funds moved: false
 ```
@@ -121,7 +126,9 @@ Stop and do not weaken validation when:
 
 - an evidence file contains an address;
 - any unexpected field is present;
+- the canary contains malformed or unbounded gas-estimate text;
 - the canary reports broadcast activity or funds movement;
+- a Mission effect contains any reason other than the exact reviewed value;
 - a Mission snapshot contains provider activity;
 - the server cannot bind to localhost;
 - the static asset path is unsafe;
