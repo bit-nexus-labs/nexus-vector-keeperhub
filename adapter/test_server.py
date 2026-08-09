@@ -1,8 +1,7 @@
-import json
 import unittest
 from unittest.mock import patch
 
-import server
+from adapter import server
 
 
 class AdapterPolicyTests(unittest.TestCase):
