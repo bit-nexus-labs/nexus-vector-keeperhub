@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Three-effect Nexus Vector hackathon mission replay.">
+  <title>Nexus Vector — Three-Effect Hackathon Replay</title>
+  <style>
+    :root{color-scheme:dark;--bg:#071018;--panel:#0d1822;--line:#203544;--text:#e8f0f5;--muted:#91a6b5;--cyan:#62d9ff;--green:#5ee6a8;--amber:#ffc857;--red:#ff7187}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#123044 0,#071018 42%,#050a0f 100%);color:var(--text);font:15px/1.5 Inter,Segoe UI,system-ui,sans-serif}
+    .wrap{max-width:1180px;margin:auto;padding:28px 20px 60px}.top{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:28px}.brand{font-weight:800;font-size:20px}.badge{border:1px solid #315467;border-radius:999px;padding:7px 12px;color:var(--cyan);font-size:12px;letter-spacing:.08em}
+    h1{font-size:clamp(32px,5vw,58px);line-height:1.02;margin:0 0 12px}h1 span{color:var(--cyan)}h2{margin:0 0 8px}h3{margin:0}.muted{color:var(--muted)}
+    .hero{display:grid;grid-template-columns:1.25fr .75fr;gap:20px;margin-bottom:22px}.panel{background:rgba(13,24,34,.9);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 16px 50px rgba(0,0,0,.18)}
+    .eyebrow{color:var(--cyan);text-transform:uppercase;letter-spacing:.12em;font-size:12px;font-weight:700}.hero p{max-width:720px}.warning{color:var(--amber)}
+    .effects{display:grid;gap:12px;margin:18px 0}.effect{display:grid;grid-template-columns:58px 1fr auto;align-items:center;gap:14px;padding:15px;border:1px solid var(--line);border-radius:14px;background:#0a141d}.num{font-family:ui-monospace,monospace;color:var(--cyan)}.who{font-weight:750}.amount{font-family:ui-monospace,monospace;font-size:18px}.state{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:3px}
+    .flow{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:20px 0}.step{border:1px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center;color:var(--muted);font-size:12px}.step.active{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 22px rgba(98,217,255,.12)}.step.done{border-color:#2f7558;color:var(--green)}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.btn{border:1px solid #315467;background:#122532;color:var(--text);border-radius:10px;padding:11px 15px;font-weight:700;cursor:pointer}.btn.primary{background:#123c50;border-color:#3b9cc0;color:#dff7ff}.btn:disabled{opacity:.4;cursor:not-allowed}
+    .log{background:#050a0f;border:1px solid #1c2b35;border-radius:12px;padding:14px;min-height:230px;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap}.ok{color:var(--green)}.info{color:var(--cyan)}.warn{color:var(--amber)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.metric{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1b2a34}.metric:last-child{border-bottom:0}.metric b{font-family:ui-monospace,monospace}.footer{margin-top:18px;color:var(--muted);font-size:12px}
+    @media(max-width:800px){.hero,.grid{grid-template-columns:1fr}.flow{grid-template-columns:repeat(3,1fr)}.effect{grid-template-columns:45px 1fr auto}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top"><div class="brand">Nexus Vector · Mission-Safe Agent Payments</div><div class="badge">HACKATHON REPLAY · NO LIVE TX</div></header>
+
+    <section class="hero">
+      <div class="panel">
+        <div class="eyebrow">Three-effect mission</div>
+        <h1>The agent can retry.<br><span>The money cannot duplicate.</span></h1>
+        <p class="muted">A compact UI replay of the same durable workflow we exercised from the terminal: three independent economic effects, one Mission, explicit approval, provider acknowledgement, durable binding and final verification.</p>
+        <p class="warning">This page is deliberately sandbox-only. Buttons below do not contact KeeperHub, sign, broadcast, or move funds.</p>
+      </div>
+      <div class="panel">
+        <h2>Mission telemetry</h2>
+        <div class="metric"><span>Mission</span><b id="mission">DRAFT</b></div>
+        <div class="metric"><span>Effects</span><b>3</b></div>
+        <div class="metric"><span>Total</span><b>1.00 USDC</b></div>
+        <div class="metric"><span>Duplicate authority</span><b class="ok">DENIED</b></div>
+        <div class="metric"><span>Network</span><b>NONE</b></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Example Mission</h2>
+      <p class="muted">Fresh names for the demo — intentionally not the operator's name and not the production participants.</p>
+      <div class="effects">
+        <div class="effect"><div class="num">E01</div><div><div class="who">Maya</div><div class="state" id="s0">PLANNED</div></div><div class="amount">0.31 USDC</div></div>
+        <div class="effect"><div class="num">E02</div><div><div class="who">Noah</div><div class="state" id="s1">PLANNED</div></div><div class="amount">0.46 USDC</div></div>
+        <div class="effect"><div class="num">E03</div><div><div class="who">Iris</div><div class="state" id="s2">PLANNED</div></div><div class="amount">0.23 USDC</div></div>
+      </div>
+
+      <div class="flow" aria-label="Mission replay state machine">
+        <div class="step active" id="p0">01<br>PREPARE</div><div class="step" id="p1">02<br>SIMULATE</div><div class="step" id="p2">03<br>APPROVE</div><div class="step" id="p3">04<br>BROADCAST</div><div class="step" id="p4">05<br>BIND</div><div class="step" id="p5">06<br>VERIFY</div>
+      </div>
+
+      <div class="controls">
+        <button class="btn primary" id="next">Run next safe step</button>
+        <button class="btn" id="reset">Reset replay</button>
+      </div>
+    </section>
+
+    <div class="grid" style="margin-top:20px">
+      <section class="panel"><h2>Operator timeline</h2><div class="log" id="log"></div></section>
+      <section class="panel"><h2>Safety checks</h2><div class="metric"><span>One canonical effect per recipient</span><b class="ok">PASS</b></div><div class="metric"><span>Approval before broadcast</span><b class="ok">PASS</b></div><div class="metric"><span>No automatic mutating retry</span><b class="ok">PASS</b></div><div class="metric"><span>Verification after provider ack</span><b class="ok">PASS</b></div><div class="metric"><span>Mainnet</span><b class="ok">BLOCKED</b></div></section>
+    </div>
+
+    <div class="footer">Demo amounts are arbitrary. No private wallet, recipient address, API key, provider reference, or transaction hash is embedded in this public UI.</div>
+  </div>
+<script>
+(() => {
+  const steps = ['PREPARE','SIMULATE','APPROVE','BROADCAST','BIND','VERIFY'];
+  const states = ['PLANNED','PLANNED','PLANNED'];
+  let index = 0;
+  const log = document.getElementById('log');
+  const mission = document.getElementById('mission');
+  const next = document.getElementById('next');
+  const reset = document.getElementById('reset');
+  const stamp = () => new Date().toISOString().replace('Z','Z');
+  const write = (kind, message) => { log.textContent += `${stamp()} [${kind}] ${message}\n`; log.scrollTop = log.scrollHeight; };
+  const render = () => {
+    steps.forEach((_, i) => { const el = document.getElementById(`p${i}`); el.className = 'step' + (i < index ? ' done' : i === index ? ' active' : ''); });
+    document.getElementById('mission').textContent = index === 0 ? 'READY_FOR_EXECUTION' : index >= steps.length ? 'COMPLETED' : 'IN_PROGRESS';
+    document.getElementById('s0').textContent = index >= 5 ? 'CHAIN_CONFIRMED' : index >= 3 ? 'SUBMITTED' : index >= 2 ? 'APPROVED' : 'PLANNED';
+    document.getElementById('s1').textContent = index >= 5 ? 'CHAIN_CONFIRMED' : index >= 3 ? 'SUBMITTED' : index >= 2 ? 'APPROVED' : 'PLANNED';
+    document.getElementById('s2').textContent = index >= 5 ? 'CHAIN_CONFIRMED' : index >= 3 ? 'SUBMITTED' : index >= 2 ? 'APPROVED' : 'PLANNED';
+    next.disabled = index >= steps.length;
+    next.textContent = index >= steps.length ? 'Replay complete' : `Run ${steps[index].toLowerCase()}`;
+  };
+  const actions = [
+    () => write('MISSION_PREPARED','3 canonical effects persisted · total=1.00 USDC · network=NONE'),
+    () => write('SIMULATION_PASS','Maya 0.31 · Noah 0.46 · Iris 0.23 · would_revert=false · broadcast_posts=0'),
+    () => write('OPERATOR_APPROVAL','Separate approval gate acknowledged for the three-effect demo'),
+    () => write('BROADCAST_REPLAY','Sandbox replay only · one mutating attempt per effect · no network call'),
+    () => write('DURABLE_BIND','Provider reference bound to durable attempt before acknowledgement'),
+    () => write('CHAIN_VERIFY','All three effects classified CHAIN_CONFIRMED in replay · duplicate retry permanently denied')
+  ];
+  next.addEventListener('click', () => { actions[index](); index += 1; render(); });
+  reset.addEventListener('click', () => { index = 0; log.textContent = ''; write('SESSION_CREATED','Three-effect hackathon replay loaded'); render(); });
+  reset.click();
+})();
+</script>
+</body>
+</html>
