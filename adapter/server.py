@@ -81,7 +81,10 @@ def _run_command(action: str, effect: str | None, approval: str | None) -> tuple
         return 504, {"error": "runner_timeout", "outcome": "UNKNOWN", "note": "Outcome is ambiguous. Poll /api/mission/status. Do not retry the mutating action."}
     except OSError as exc:
         return 500, {"error": "runner_start_failed", "detail": str(exc)}
-    return (200 if proc.returncode == 0 else 502), _parse_runner_output(proc.stdout, proc.stderr)
+    payload = _parse_runner_output(proc.stdout, proc.stderr)
+    if action == "status" and isinstance(payload, dict) and payload.get("status") in {"STOP", "LOCAL_STATUS", "READY_FOR_EXECUTION", "COMPLETED", "PASS"}:
+        return 200, payload
+    return (200 if proc.returncode == 0 else 502), payload
 
 
 def _log_path(run_ref: str) -> Path | None:
