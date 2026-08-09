@@ -28,6 +28,10 @@ MAX_BODY_BYTES = 16_384
 RUN_REF_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,63}$")
 ALLOWED_EFFECTS = {"anna", "mark", "leo"}
 ALLOWED_ACTIONS = {"simulate", "broadcast", "bind", "verify"}
+STATIC_FILES = {
+    "/api-client.js": ("api-client.js", "application/javascript; charset=utf-8"),
+    "/hackathon-demo.html": ("hackathon-demo.html", "text/html; charset=utf-8"),
+}
 ADAPTER_TOKEN = secrets.token_urlsafe(32)
 ALLOWED_ORIGIN = f"http://{HOST}:{PORT}"
 
@@ -64,8 +68,6 @@ def _runner_command(action: str, effect: str | None, approval: str | None) -> li
 
 
 def _parse_runner_output(stdout: str, stderr: str) -> dict:
-    # The PowerShell wrapper emits JSON plus OPERATOR_LOG_PATH=..., so parse
-    # the JSON line instead of feeding the complete stdout to json.loads().
     for line in (line.strip() for line in stdout.splitlines() if line.strip()):
         if line.startswith("{") and line.endswith("}"):
             try:
@@ -108,7 +110,7 @@ def _log_path(run_ref: str) -> Path | None:
 
 
 class AdapterHandler(BaseHTTPRequestHandler):
-    server_version = "NexusVectorAdapter/0.2"
+    server_version = "NexusVectorAdapter/0.3"
 
     def _json(self, status: int, payload: dict) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -142,7 +144,13 @@ class AdapterHandler(BaseHTTPRequestHandler):
         if parsed.path == "/":
             self._serve_index()
             return
-        if not self._authorized(require_origin=False):
+        if parsed.path in STATIC_FILES:
+            if not self._authorized(require_origin=True):
+                self._json(401, {"error": "unauthorized"})
+                return
+            self._serve_static(parsed.path)
+            return
+        if not self._authorized(require_origin=True):
             self._json(401, {"error": "unauthorized"})
             return
         if parsed.path == "/api/mission/status":
@@ -231,9 +239,26 @@ class AdapterHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _serve_static(self, request_path: str) -> None:
+        filename, content_type = STATIC_FILES[request_path]
+        path = STATIC_DIR / filename
+        if not path.is_file():
+            self._json(404, {"error": "static_file_not_found"})
+            return
+        body = path.read_bytes()
+        if request_path.endswith(".html"):
+            text = body.decode("utf-8")
+            text = text.replace("__NEXUS_ADAPTER_TOKEN__", ADAPTER_TOKEN)
+            text = text.replace("__NEXUS_ADAPTER_ORIGIN__", ALLOWED_ORIGIN)
+            body = text.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def log_message(self, fmt: str, *args) -> None:
-        # Request headers/body are intentionally not logged because they may
-        # contain the adapter token or an approval challenge.
         super().log_message(fmt, *args)
 
 
