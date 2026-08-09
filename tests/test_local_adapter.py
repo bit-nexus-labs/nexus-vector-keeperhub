@@ -95,3 +95,12 @@ def test_timeout_is_ambiguous(monkeypatch) -> None:
     assert status == 504
     assert body["outcome"] == "UNKNOWN"
     assert "Do not retry" in body["note"]
+
+
+def test_effect_lock_is_non_reentrant() -> None:
+    lock = adapter._locks["anna"]
+    assert lock.acquire(blocking=False)
+    try:
+        assert not lock.acquire(blocking=False)
+    finally:
+        lock.release()
