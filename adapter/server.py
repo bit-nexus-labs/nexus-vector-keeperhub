@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-"""Nexus Vector localhost control-plane adapter.
-
-Thin wrapper around the already-tested PowerShell execution layer. The browser
-never owns the state machine and never receives wallet credentials.
-"""
+"""Nexus Vector localhost control-plane adapter."""
 
 import json
 import os
@@ -27,14 +23,13 @@ COMMAND_TIMEOUT_SECONDS = 90
 MAX_BODY_BYTES = 16_384
 RUN_REF_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,63}$")
 ALLOWED_EFFECTS = {"anna", "mark", "leo"}
-ALLOWED_ACTIONS = {"simulate", "broadcast", "bind", "verify"}
+ALLOWED_ACTIONS = {"simulate", "broadcast", "provider-bind", "verify"}
 STATIC_FILES = {
     "/api-client.js": ("api-client.js", "application/javascript; charset=utf-8"),
     "/hackathon-demo.html": ("hackathon-demo.html", "text/html; charset=utf-8"),
 }
 ADAPTER_TOKEN = secrets.token_urlsafe(32)
 ALLOWED_ORIGIN = f"http://{HOST}:{PORT}"
-
 _locks = {effect: threading.Lock() for effect in (*ALLOWED_EFFECTS, "*")}
 
 
@@ -53,11 +48,7 @@ def _runner_command(action: str, effect: str | None, approval: str | None) -> li
         raise ValueError("effect_required")
     if action in {"simulate", "broadcast"} and not approval:
         raise ValueError("approval_required")
-
-    args = [
-        "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-        "-File", str(RUNNER_PS1), "-Command", action, "-RunRef", _validate_run_ref(RUN_REF),
-    ]
+    args = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(RUNNER_PS1), "-Command", action, "-RunRef", _validate_run_ref(RUN_REF)]
     if effect is not None:
         args += ["-Effect", effect]
     if action in {"simulate", "broadcast"}:
@@ -74,11 +65,7 @@ def _parse_runner_output(stdout: str, stderr: str) -> dict:
                 return json.loads(line)
             except json.JSONDecodeError:
                 continue
-    return {
-        "error": "runner_non_json_output",
-        "raw_stdout": stdout[-8000:],
-        "raw_stderr": stderr[-8000:],
-    }
+    return {"error": "runner_non_json_output", "raw_stdout": stdout[-8000:], "raw_stderr": stderr[-8000:]}
 
 
 def _run_command(action: str, effect: str | None, approval: str | None) -> tuple[int, dict]:
@@ -89,15 +76,9 @@ def _run_command(action: str, effect: str | None, approval: str | None) -> tuple
     except ValueError as exc:
         return 400, {"error": str(exc)}
     try:
-        proc = subprocess.run(
-            command, cwd=str(ROOT), capture_output=True, text=True,
-            timeout=COMMAND_TIMEOUT_SECONDS, shell=False, check=False,
-        )
+        proc = subprocess.run(command, cwd=str(ROOT), capture_output=True, text=True, timeout=COMMAND_TIMEOUT_SECONDS, shell=False, check=False)
     except subprocess.TimeoutExpired:
-        return 504, {
-            "error": "runner_timeout", "outcome": "UNKNOWN",
-            "note": "Outcome is ambiguous. Poll /api/mission/status. Do not retry the mutating action.",
-        }
+        return 504, {"error": "runner_timeout", "outcome": "UNKNOWN", "note": "Outcome is ambiguous. Poll /api/mission/status. Do not retry the mutating action."}
     except OSError as exc:
         return 500, {"error": "runner_start_failed", "detail": str(exc)}
     return (200 if proc.returncode == 0 else 502), _parse_runner_output(proc.stdout, proc.stderr)
@@ -110,7 +91,7 @@ def _log_path(run_ref: str) -> Path | None:
 
 
 class AdapterHandler(BaseHTTPRequestHandler):
-    server_version = "NexusVectorAdapter/0.3"
+    server_version = "NexusVectorAdapter/0.4"
 
     def _json(self, status: int, payload: dict) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -139,7 +120,7 @@ class AdapterHandler(BaseHTTPRequestHandler):
             raise ValueError("request_body_must_be_object")
         return value
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/":
             self._serve_index()
@@ -178,7 +159,7 @@ class AdapterHandler(BaseHTTPRequestHandler):
             return
         self._json(404, {"error": "not_found"})
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         if not self._authorized(require_origin=True):
             self._json(401, {"error": "unauthorized"})
             return
@@ -211,10 +192,7 @@ class AdapterHandler(BaseHTTPRequestHandler):
     def _mutating(self, action: str, effect: str | None, approval: str | None) -> None:
         lock = _locks[effect or "*"]
         if not lock.acquire(blocking=False):
-            self._json(409, {
-                "error": "effect_busy",
-                "note": "A mutating call is already in flight. Poll status; do not retry automatically.",
-            })
+            self._json(409, {"error": "effect_busy", "note": "A mutating call is already in flight. Poll status; do not retry automatically."})
             return
         try:
             status, body = _run_command(action, effect, approval)
@@ -227,9 +205,7 @@ class AdapterHandler(BaseHTTPRequestHandler):
         if not index_path.is_file():
             self._json(404, {"error": "ui_not_found"})
             return
-        html = index_path.read_text(encoding="utf-8")
-        html = html.replace("__NEXUS_ADAPTER_TOKEN__", ADAPTER_TOKEN)
-        html = html.replace("__NEXUS_ADAPTER_ORIGIN__", ALLOWED_ORIGIN)
+        html = index_path.read_text(encoding="utf-8").replace("__NEXUS_ADAPTER_TOKEN__", ADAPTER_TOKEN).replace("__NEXUS_ADAPTER_ORIGIN__", ALLOWED_ORIGIN)
         body = html.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -246,11 +222,6 @@ class AdapterHandler(BaseHTTPRequestHandler):
             self._json(404, {"error": "static_file_not_found"})
             return
         body = path.read_bytes()
-        if request_path.endswith(".html"):
-            text = body.decode("utf-8")
-            text = text.replace("__NEXUS_ADAPTER_TOKEN__", ADAPTER_TOKEN)
-            text = text.replace("__NEXUS_ADAPTER_ORIGIN__", ALLOWED_ORIGIN)
-            body = text.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Cache-Control", "no-store")
