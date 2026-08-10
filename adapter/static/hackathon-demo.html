@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus Vector — Mission Control</title></head>
+<body><main id="app"><h1>Nexus Vector · Mission Control</h1><p>Loading live mission state…</p></main><script>window.NEXUS_ADAPTER_TOKEN="__NEXUS_ADAPTER_TOKEN__";window.NEXUS_ADAPTER_ORIGIN="__NEXUS_ADAPTER_ORIGIN__";</script><script src="./api-client.js"></script><script>
+(async()=>{const app=document.getElementById('app');const esc=s=>String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));const money=u=>(Number(u||0)/1e6).toFixed(2);try{const s=await NexusAdapter.getStatus();app.innerHTML='<h1>Nexus Vector · Mission Control</h1><p>Mission: <b>'+esc(s.mission_state||s.status)+'</b> · next effect: <b>'+esc(s.next_effect||'none')+'</b></p><section>'+(s.effects||[]).map(e=>'<article><b>'+esc(e.effect_ref)+'</b> · '+money(e.amount_base_units)+' USDC · '+esc(e.state)+' · '+esc(e.attempt_state)+'</article>').join('')+'</section><p>Backend owns the state machine. Mainnet remains blocked.</p>'}catch(e){app.innerHTML='<h1>Adapter error</h1><p>'+esc(e.message)+'</p>'}})();
+</script></body></html>
