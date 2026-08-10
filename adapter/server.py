@@ -129,9 +129,6 @@ class AdapterHandler(BaseHTTPRequestHandler):
             self._serve_index()
             return
         if parsed.path in STATIC_FILES:
-            if not self._authorized(require_origin=False):
-                self._json(401, {"error": "unauthorized"})
-                return
             self._serve_static(parsed.path)
             return
         if not self._authorized(require_origin=False):
