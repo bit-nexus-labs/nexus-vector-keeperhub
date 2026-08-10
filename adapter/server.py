@@ -220,6 +220,10 @@ class AdapterHandler(BaseHTTPRequestHandler):
             self._json(404, {"error": "ui_not_found"})
             return
         html = index_path.read_text(encoding="utf-8")
+        api_client_path = STATIC_DIR / "api-client.js"
+        if api_client_path.is_file():
+            js_code = api_client_path.read_text(encoding="utf-8")
+            html = html.replace('<script src="./api-client.js"></script>', f'<script>\n{js_code}\n</script>')
         html = html.replace("__NEXUS_ADAPTER_TOKEN__", ADAPTER_TOKEN)
         html = html.replace("__NEXUS_ADAPTER_ORIGIN__", ALLOWED_ORIGIN)
         body = html.encode("utf-8")
